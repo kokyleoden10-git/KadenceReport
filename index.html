@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Kai — Daily Practice</title>
+  <title>Kadence</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
@@ -678,9 +678,115 @@
       font-size: 13px;
       cursor: pointer;
     }
+
+    /* ── LOCK SCREEN ── */
+    #lock-screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 40px 32px;
+    }
+    #lock-screen.visible { display: flex; }
+    .lock-logo {
+      font-family: 'DM Serif Display', serif;
+      font-size: 36px;
+      color: var(--text);
+      margin-bottom: 6px;
+      letter-spacing: -0.5px;
+    }
+    .lock-tagline {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 48px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .lock-card {
+      width: 100%;
+      max-width: 320px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+    }
+    .lock-card-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .lock-card-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .lock-input {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      padding: 12px 14px;
+      outline: none;
+      margin-bottom: 10px;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+    .lock-input:focus { border-color: rgba(125,181,160,0.5); }
+    .lock-input.error { border-color: rgba(180,60,60,0.6); animation: shake 0.35s; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-8px); }
+      60%      { transform: translateX(8px); }
+    }
+    .lock-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--sage-dim);
+      border: 1px solid rgba(125,181,160,0.3);
+      border-radius: var(--radius-sm);
+      color: var(--sage);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      margin-top: 4px;
+    }
+    .lock-btn:active { opacity: 0.75; }
+    .lock-error {
+      font-size: 12px;
+      color: #E07070;
+      margin-top: 10px;
+      text-align: center;
+      min-height: 18px;
+    }
+    .lock-attempts {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-align: center;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
+
+<!-- LOCK SCREEN -->
+<div id="lock-screen" class="visible">
+  <div class="lock-logo">Kadence</div>
+  <div class="lock-tagline">Daily Practice</div>
+  <div class="lock-card" id="lock-card">
+    <!-- content injected by JS depending on setup state -->
+  </div>
+</div>
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
@@ -688,7 +794,7 @@
 <!-- ── TODAY VIEW ── -->
 <div class="view active" id="view-today">
   <div class="header">
-    <div class="header-eyebrow">Daily Practice</div>
+    <div class="header-eyebrow">Kadence</div>
     <div class="header-date" id="header-date">Tuesday, August 5</div>
     <div class="header-sub" id="header-sub">Every entry is a vote for who you're becoming.</div>
   </div>
@@ -917,13 +1023,13 @@ let state = {
 
 function loadState() {
   try {
-    const saved = localStorage.getItem('kai-habits-v2');
+    const saved = localStorage.getItem('kadence-habits-v2');
     if (saved) state = JSON.parse(saved);
   } catch(e) {}
 }
 
 function saveState() {
-  localStorage.setItem('kai-habits-v2', JSON.stringify(state));
+  localStorage.setItem('kadence-habits-v2', JSON.stringify(state));
 }
 
 // ─── DATE UTILS ───────────────────────────────────────────────────────────────
@@ -1000,6 +1106,7 @@ function render() {
   renderStreaksView();
   renderLogView();
   renderDetailLogView();
+  renderLockButton();
 }
 
 function renderHeader() {
@@ -1450,7 +1557,7 @@ function exportData() {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url;
-  a.download = `kai-habits-${todayStr()}.json`;
+  a.download = `kadence-habits-${todayStr()}.json`;
   a.click();
   URL.revokeObjectURL(url);
   showToast('Exported ✓');
@@ -1476,45 +1583,157 @@ function importData(e) {
 
 function confirmReset() {
   if (confirm('Clear ALL data and reset? This cannot be undone.')) {
-    localStorage.removeItem('kai-habits-v2');
+    localStorage.removeItem('kadence-habits-v2');
     state = { log: [], detailLog: [], streaks: {}, goalDaysHit: 0 };
     render();
     showToast('Reset complete.');
   }
 }
 
-// ─── SEED EXISTING DATA FROM markdown ────────────────────────────────────────
+// ─── AUTH / PIN SYSTEM ────────────────────────────────────────────────────────
+// PIN is stored as a SHA-256 hash — never plain text.
+// Session flag lives only in memory; clears on tab close.
 
-function seedInitialData() {
-  if (state.log.length) return; // already has data
-  const seed = [
-    { id:'seed1', date:'2026-08-04', habitId:'knowledge', entry:'Read a chapter of God Emperor of Dune', activity:'Reading', context:'Physical Book', tags:['#DuneSeries','#LibraryBook'], notes:'', excluded:false },
-    { id:'seed2', date:'2026-08-04', habitId:'admin',     entry:'Cleaned dishes', activity:'House Chores', context:'Kitchen', tags:['#Dishes'], notes:'', excluded:false },
-    { id:'seed3', date:'2026-08-04', habitId:'knowledge', entry:'Practiced Japanese on Duolingo', activity:'Hiragana Practice', context:'Duolingo', tags:['#Japanese'], notes:'', excluded:false },
-    { id:'seed4', date:'2026-08-04', habitId:'wellbeing', entry:'Tarot Reading on Creative Block & Self-Confidence', activity:'Tarot Reading', context:'AI-Assisted', tags:['#CreativeBlock','#SelfConfidence','#ChatGPT','#For-Me'], notes:'Rider-Waite-Smith deck, 8-Card Mirror Spread', excluded:false },
-    { id:'seed5', date:'2026-08-05', habitId:'creativity',entry:'30+ Minutes of Music Discovery', activity:'Music Discovery & Playlist Building', context:'Spotify', tags:[], notes:'', excluded:false },
-    { id:'seed6', date:'2026-08-05', habitId:'wellbeing', entry:'Smoke Session - 1', activity:'Marijuana', context:'Solo', tags:['#WaterPipe'], notes:'1-Hit', excluded:true },
-    { id:'seed7', date:'2026-08-05', habitId:'wellbeing', entry:'Smoke Session - 2', activity:'Marijuana', context:'Solo', tags:['#WaterPipe'], notes:'1-Hit', excluded:true },
-  ];
-  state.log = seed;
-  state.detailLog = [{
-    id:'seed4-detail',
-    date:'2026-08-04',
-    title:'Tarot Reading on Creative Block & Self-Confidence',
-    deck:'Rider-Waite-Smith',
-    spread:'8-Card Mirror Spread',
-    interpretation:'AI-Assisted',
-    cards:['2 of Swords','5 of Swords','Page of Swords','Ace of Swords','3 of Cups','4 of Wands — Reversed','8 of Pentacles','9 - The Hermit — Reversed'],
-    tags:['#CreativeBlock','#SelfConfidence','#ChatGPT','#For-Me'],
-    notes:''
-  }];
+let sessionUnlocked = false;
+
+async function hashPin(pin) {
+  const enc = new TextEncoder().encode(pin);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function getAuthRecord() {
+  try { return JSON.parse(localStorage.getItem('kadence-auth') || 'null'); } catch { return null; }
+}
+
+function saveAuthRecord(record) {
+  localStorage.setItem('kadence-auth', JSON.stringify(record));
+}
+
+// Show the lock screen in setup mode (first time)
+function showSetupScreen() {
+  document.getElementById('lock-card').innerHTML = `
+    <div class="lock-card-title">Create your access</div>
+    <div class="lock-card-sub">Set a username and PIN. These are stored only on this device — pick something only you'd know.</div>
+    <input class="lock-input" id="setup-username" type="text" placeholder="Username"
+      autocomplete="off" autocorrect="off" spellcheck="false" />
+    <input class="lock-input" id="setup-pin" type="password" inputmode="numeric"
+      placeholder="PIN (4–12 digits)" autocomplete="new-password" />
+    <input class="lock-input" id="setup-pin2" type="password" inputmode="numeric"
+      placeholder="Confirm PIN" autocomplete="new-password" />
+    <button class="lock-btn" onclick="submitSetup()">Create access</button>
+    <div class="lock-error" id="setup-error"></div>
+  `;
+  document.getElementById('setup-username').focus();
+  // allow Enter key
+  ['setup-username','setup-pin','setup-pin2'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') submitSetup(); });
+  });
+}
+
+// Show the lock screen in login mode
+function showLoginScreen(username) {
+  document.getElementById('lock-card').innerHTML = `
+    <div class="lock-card-title">Welcome back</div>
+    <div class="lock-card-sub">Enter your PIN to continue.</div>
+    <input class="lock-input" id="login-pin" type="password" inputmode="numeric"
+      placeholder="PIN" autocomplete="current-password" />
+    <button class="lock-btn" onclick="submitLogin()">Unlock</button>
+    <div class="lock-error" id="login-error"></div>
+    <div class="lock-attempts" id="login-attempts"></div>
+  `;
+  document.getElementById('login-pin').focus();
+  document.getElementById('login-pin').addEventListener('keydown', e => { if(e.key==='Enter') submitLogin(); });
+}
+
+async function submitSetup() {
+  const username = document.getElementById('setup-username').value.trim();
+  const pin      = document.getElementById('setup-pin').value;
+  const pin2     = document.getElementById('setup-pin2').value;
+  const errEl    = document.getElementById('setup-error');
+
+  if (!username) { showError('setup-username', errEl, 'Choose a username.'); return; }
+  if (pin.length < 4) { showError('setup-pin', errEl, 'PIN must be at least 4 digits.'); return; }
+  if (pin !== pin2)   { showError('setup-pin2', errEl, 'PINs don\'t match.'); return; }
+
+  const hashed = await hashPin(pin);
+  saveAuthRecord({ username, pinHash: hashed, attempts: 0 });
+  unlock();
+}
+
+async function submitLogin() {
+  const pin   = document.getElementById('login-pin').value;
+  const errEl = document.getElementById('login-error');
+  const attEl = document.getElementById('login-attempts');
+  const auth  = getAuthRecord();
+  if (!auth) { showSetupScreen(); return; }
+
+  const hashed = await hashPin(pin);
+  if (hashed === auth.pinHash) {
+    auth.attempts = 0;
+    saveAuthRecord(auth);
+    unlock();
+  } else {
+    auth.attempts = (auth.attempts || 0) + 1;
+    saveAuthRecord(auth);
+    showError('login-pin', errEl, 'Wrong PIN.');
+    if (auth.attempts >= 3) {
+      attEl.textContent = `${auth.attempts} failed attempt${auth.attempts>1?'s':''}. No lockout — just keep trying.`;
+    }
+    document.getElementById('login-pin').value = '';
+    document.getElementById('login-pin').focus();
+  }
+}
+
+function showError(inputId, errEl, msg) {
+  errEl.textContent = msg;
+  const input = document.getElementById(inputId);
+  if (input) {
+    input.classList.add('error');
+    setTimeout(() => input.classList.remove('error'), 400);
+  }
+}
+
+function unlock() {
+  sessionUnlocked = true;
+  document.getElementById('lock-screen').classList.remove('visible');
+  loadState();
+  render();
+}
+
+function checkAuth() {
+  const auth = getAuthRecord();
+  if (!auth) {
+    showSetupScreen();
+  } else {
+    showLoginScreen(auth.username);
+  }
+}
+
+// Add lock button to settings
+function renderLockButton() {
+  const existing = document.getElementById('lock-now-btn');
+  if (existing) return;
+  const btn = document.createElement('button');
+  btn.id = 'lock-now-btn';
+  btn.className = 'danger-btn';
+  btn.style.cssText = 'background:var(--bg2);border-color:var(--border);color:var(--text-mid);margin-bottom:10px';
+  btn.textContent = 'Lock app';
+  btn.onclick = lockApp;
+  const dangerBtn = document.querySelector('.settings-view .danger-btn');
+  dangerBtn.parentNode.insertBefore(btn, dangerBtn);
+}
+
+function lockApp() {
+  sessionUnlocked = false;
+  const auth = getAuthRecord();
+  document.getElementById('lock-screen').classList.add('visible');
+  showLoginScreen(auth ? auth.username : '');
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 
-loadState();
-seedInitialData();
-render();
+checkAuth();
 </script>
 </body>
 </html>
