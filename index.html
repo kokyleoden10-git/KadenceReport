@@ -829,6 +829,149 @@
       cursor: pointer;
     }
 
+    /* ── PROFILE SECTION ── */
+    .profile-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--sage-dim), var(--purple-dim));
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px;
+      color: var(--text);
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+    .profile-hero {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .profile-hero-info { flex: 1; min-width: 0; }
+    .profile-hero-name {
+      font-family: 'DM Serif Display', serif;
+      font-size: 20px;
+      color: var(--text);
+      line-height: 1.2;
+      margin-bottom: 2px;
+    }
+    .profile-hero-email {
+      font-size: 12px;
+      color: var(--text-dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .profile-field {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .profile-field:last-child { border-bottom: none; }
+    .profile-field-label {
+      font-size: 13px;
+      color: var(--text);
+      flex-shrink: 0;
+    }
+    .profile-field-value {
+      font-size: 13px;
+      color: var(--text-dim);
+      text-align: right;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .profile-edit-btn {
+      font-size: 11px;
+      color: var(--sage);
+      background: var(--sage-dim);
+      border: none;
+      border-radius: 20px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .profile-input-inline {
+      background: var(--bg3);
+      border: 1px solid rgba(125,181,160,0.4);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      padding: 6px 10px;
+      outline: none;
+      width: 100%;
+    }
+    .profile-input-inline:focus { border-color: var(--sage); }
+    .profile-save-btn {
+      font-size: 11px;
+      color: var(--sage);
+      background: var(--sage-dim);
+      border: 1px solid rgba(125,181,160,0.3);
+      border-radius: 20px;
+      padding: 5px 12px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    /* ── WEATHER STRIP ── */
+    .weather-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .weather-location {
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .weather-divider {
+      width: 1px;
+      height: 12px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+    .weather-stats {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .weather-stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+    .weather-stat-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .weather-dot { color: var(--text-dim); font-size: 10px; }
+
     /* ── LOCK SCREEN ── */
     #lock-screen {
       display: none;
@@ -1019,9 +1162,20 @@
 <!-- ── TODAY VIEW ── -->
 <div class="view active" id="view-today">
   <div class="header">
-    <div class="header-eyebrow">Kadence</div>
+    <div class="header-eyebrow" id="header-eyebrow">Kadence</div>
     <div class="header-date" id="header-date">Tuesday, August 5</div>
     <div class="header-sub" id="header-sub">Every entry is a vote for who you're becoming.</div>
+    <div id="weather-strip" style="display:none" class="weather-strip">
+      <span class="weather-location" id="weather-location"></span>
+      <span class="weather-divider"></span>
+      <div class="weather-stats">
+        <span class="weather-stat"><span class="weather-stat-label">High</span> <span id="weather-high">–</span></span>
+        <span class="weather-dot">·</span>
+        <span class="weather-stat"><span class="weather-stat-label">Low</span> <span id="weather-low">–</span></span>
+        <span class="weather-dot">·</span>
+        <span id="weather-condition" style="font-size:12px;color:var(--text-mid)">–</span>
+      </div>
+    </div>
   </div>
 
   <!-- MOTIVATION -->
@@ -1098,7 +1252,10 @@
     <div class="header-date" style="font-size:22px">Settings</div>
   </div>
   <div class="settings-view">
-    <div class="settings-section-label">Data</div>
+    <div class="settings-section-label">Profile</div>
+    <div id="profile-section"></div>
+
+    <div class="settings-section-label" style="margin-top:20px">Data</div>
     <div class="settings-section">
       <div class="settings-row">
         <div>
@@ -1332,12 +1489,20 @@ function render() {
   renderLogView();
   renderDetailLogView();
   renderLockButton();
+  renderProfileSection();
 }
 
 function renderHeader() {
   const d = new Date();
   document.getElementById('header-date').textContent =
     d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+
+  // Nickname eyebrow: "Kyle's KADENCE" or just "KADENCE"
+  const profile = getProfile();
+  const nick = profile.nickname ? toTitleCase(profile.nickname.trim()) : null;
+  document.getElementById('header-eyebrow').innerHTML = nick
+    ? `${nick}'s <span style="letter-spacing:0.12em">KADENCE</span>`
+    : 'KADENCE';
 
   // dynamic sub based on time of day
   const h = d.getHours();
@@ -1346,6 +1511,11 @@ function renderHeader() {
   else if (h < 14) sub = "Midday check-in. How's the practice going?";
   else if (h >= 21) sub = "End of day. Even one entry counts.";
   document.getElementById('header-sub').textContent = sub;
+
+  // weather — fire and forget
+  const loc = profile.currentlocation;
+  if (loc) fetchWeather(loc);
+  else hideWeather();
 }
 
 function renderMotivation() {
@@ -1981,7 +2151,7 @@ function logEntry(habitId) {
 
   const msg = excluded
     ? 'Logged (awareness only, not counted toward streak)'
-    : `Logged ✓ — vote cast for ${h.name}.`;
+    : `Entry added for ${h.name} ✓`;
   showToast(msg);
 }
 
@@ -2044,6 +2214,159 @@ function confirmReset() {
     render();
     showToast('Reset complete.');
   }
+}
+
+// ─── PROFILE ─────────────────────────────────────────────────────────────────
+
+function getProfile() {
+  try { return JSON.parse(localStorage.getItem('kadence-profile') || '{}'); } catch { return {}; }
+}
+
+function saveProfile(profile) {
+  localStorage.setItem('kadence-profile', JSON.stringify(profile));
+}
+
+function toTitleCase(str) {
+  return str.replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function renderProfileSection() {
+  const profile = getProfile();
+  const auth    = getAuthRecord();
+  const email   = auth ? auth.username : '—'; // username doubles as display; email stored separately if set
+  const nick    = profile.nickname || '—';
+  const initials = nick !== '—' ? nick.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0,2) : '?';
+
+  const container = document.getElementById('profile-section');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="profile-hero">
+      <div class="profile-avatar">${initials}</div>
+      <div class="profile-hero-info">
+        <div class="profile-hero-name">${nick !== '—' ? toTitleCase(nick) : 'Set a nickname'}</div>
+        <div class="profile-hero-email">${profile.email || email}</div>
+      </div>
+    </div>
+    <div class="settings-section">
+      ${profileField('nickname',        'Nickname',         profile.nickname,       'e.g. Kai')}
+      ${profileField('email',           'Email',            profile.email,          'you@example.com', 'email')}
+      ${profileField('birthdate',       'Birthdate',        profile.birthdate,      'YYYY-MM-DD', 'date')}
+      ${profileField('birthtime',       'Birth Time',       profile.birthtime,      'HH:MM (optional)', 'time')}
+      ${profileField('birthlocation',   'Birth Location',   profile.birthlocation,  'City, Country (optional)')}
+      ${profileField('currentlocation', 'Current Location', profile.currentlocation,'City, State')}
+    </div>
+  `;
+}
+
+function profileField(key, label, value, placeholder, inputType = 'text') {
+  const display = value || '—';
+  return `
+    <div class="profile-field" id="pf-row-${key}">
+      <span class="profile-field-label">${label}</span>
+      <span class="profile-field-value" id="pf-val-${key}">${display}</span>
+      <button class="profile-edit-btn" onclick="editProfileField('${key}','${placeholder}','${inputType}')">Edit</button>
+    </div>
+  `;
+}
+
+function editProfileField(key, placeholder, inputType) {
+  const row   = document.getElementById(`pf-row-${key}`);
+  const valEl = document.getElementById(`pf-val-${key}`);
+  const profile = getProfile();
+  const current = profile[key] || '';
+
+  // swap value span + edit button for inline input + save
+  valEl.outerHTML = `<input class="profile-input-inline" id="pf-input-${key}"
+    type="${inputType}" value="${current}" placeholder="${placeholder}"
+    onkeydown="if(event.key==='Enter') saveProfileField('${key}')" />`;
+  row.querySelector('.profile-edit-btn').outerHTML =
+    `<button class="profile-save-btn" onclick="saveProfileField('${key}')">Save</button>`;
+  document.getElementById(`pf-input-${key}`).focus();
+}
+
+function saveProfileField(key) {
+  const input   = document.getElementById(`pf-input-${key}`);
+  if (!input) return;
+  const val     = input.value.trim();
+  const profile = getProfile();
+  profile[key]  = val;
+  saveProfile(profile);
+  renderProfileSection();
+  renderHeader(); // refresh eyebrow + weather if location changed
+  if (key === 'currentlocation' && val) fetchWeather(val);
+}
+
+// ─── WEATHER ──────────────────────────────────────────────────────────────────
+// Uses Open-Meteo (free, no key) + geocoding via nominatim.
+
+let weatherCache = null; // { date, high, low, condition, location }
+
+async function fetchWeather(locationStr) {
+  if (!locationStr) return;
+
+  // check cache — same location, same day
+  const today = todayStr();
+  if (weatherCache && weatherCache.date === today && weatherCache.locationStr === locationStr) {
+    applyWeather(weatherCache);
+    return;
+  }
+
+  try {
+    // Step 1: geocode the location string
+    const geoUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(locationStr)}&format=json&limit=1`;
+    const geoRes  = await fetch(geoUrl, { headers: { 'Accept-Language': 'en' } });
+    const geoData = await geoRes.json();
+    if (!geoData.length) { hideWeather(); return; }
+
+    const { lat, lon, display_name } = geoData[0];
+    // Use first two parts of display_name as the label (City, State)
+    const label = display_name.split(',').slice(0, 2).map(s => s.trim()).join(', ');
+
+    // Step 2: fetch forecast from Open-Meteo
+    const wxUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weathercode&temperature_unit=fahrenheit&timezone=auto&forecast_days=1`;
+    const wxRes  = await fetch(wxUrl);
+    const wxData = await wxRes.json();
+
+    const high = Math.round(wxData.daily.temperature_2m_max[0]);
+    const low  = Math.round(wxData.daily.temperature_2m_min[0]);
+    const code = wxData.daily.weathercode[0];
+    const condition = wmoCondition(code);
+
+    weatherCache = { date: today, locationStr, label, high, low, condition };
+    applyWeather(weatherCache);
+  } catch {
+    hideWeather();
+  }
+}
+
+function applyWeather({ label, high, low, condition }) {
+  document.getElementById('weather-strip').style.display = 'flex';
+  document.getElementById('weather-location').textContent = label;
+  document.getElementById('weather-high').textContent = `${high}°`;
+  document.getElementById('weather-low').textContent  = `${low}°`;
+  document.getElementById('weather-condition').textContent = condition;
+}
+
+function hideWeather() {
+  document.getElementById('weather-strip').style.display = 'none';
+}
+
+function wmoCondition(code) {
+  // WMO weather interpretation codes → human label
+  if (code === 0) return 'Clear';
+  if (code === 1) return 'Mostly Clear';
+  if (code === 2) return 'Partly Cloudy';
+  if (code === 3) return 'Overcast';
+  if ([45,48].includes(code)) return 'Foggy';
+  if ([51,53,55].includes(code)) return 'Drizzle';
+  if ([61,63,65].includes(code)) return 'Rain';
+  if ([71,73,75,77].includes(code)) return 'Snow';
+  if ([80,81,82].includes(code)) return 'Showers';
+  if ([85,86].includes(code)) return 'Snow Showers';
+  if ([95].includes(code)) return 'Thunderstorm';
+  if ([96,99].includes(code)) return 'Thunderstorm w/ Hail';
+  return 'Mixed';
 }
 
 // ─── AUTH / PIN SYSTEM ────────────────────────────────────────────────────────
