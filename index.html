@@ -1404,14 +1404,11 @@ let state = {
 };
 
 function loadState() {
-  try {
-    const saved = localStorage.getItem('kadence-habits-v2');
-    if (saved) state = JSON.parse(saved);
-  } catch(e) {}
+  loadLocalCache(); // state already loaded from cache — no-op here, kept for compatibility
 }
 
 function saveState() {
-  localStorage.setItem('kadence-habits-v2', JSON.stringify(state));
+  saveLocalCache();
 }
 
 // ─── DATE UTILS ───────────────────────────────────────────────────────────────
@@ -1678,7 +1675,8 @@ function saveNewContext(habitId, activity, contextName) {
   if (!lib[activity].includes(contextName)) lib[activity].push(contextName);
   if (!state.library) state.library = {};
   state.library[habitId] = lib;
-  saveState();
+  saveLocalCache();
+  persistLibrary();
 }
 
 function getLastEntry(habitId, field) {
@@ -1873,7 +1871,8 @@ function confirmSheetNewItem() {
     if (!lib[name]) lib[name] = [];
     if (!state.library) state.library = {};
     state.library[habitId] = lib;
-    saveState();
+    saveLocalCache();
+    persistLibrary();
     const btn = document.getElementById(`activity-btn-${habitId}`);
     setPickerValue(btn, name);
     // reset context
@@ -2117,6 +2116,8 @@ function logEntry(habitId) {
   const today = todayStr();
 
   state.log.push({ id, date: today, habitId, entry, activity, context, tags, notes, excluded });
+  saveLocalCache();
+  persistLogEntry(state.log[state.log.length - 1]);
 
   // handle tarot detail log
   if (activity === 'Tarot Reading') {
@@ -2136,6 +2137,7 @@ function logEntry(habitId) {
       tags: [...tags],
       notes
     });
+    persistDetailEntry(state.detailLog[state.detailLog.length - 1]);
   }
 
   // reset form — pickers go back to "Last: X" placeholder
@@ -2207,13 +2209,24 @@ function importData(e) {
   reader.readAsText(file);
 }
 
-function confirmReset() {
-  if (confirm('Clear ALL data and reset? This cannot be undone.')) {
-    localStorage.removeItem('kadence-habits-v2');
-    state = { log: [], detailLog: [], streaks: {}, goalDaysHit: 0 };
-    render();
-    showToast('Reset complete.');
+async function confirmReset() {
+  if (!confirm('Clear ALL data and reset? This cannot be undone.')) return;
+  if (currentUser && navigator.onLine) {
+    try {
+      const token = currentUser.access_token;
+      const uid   = currentUser.id;
+      await Promise.all([
+        sbDelete('habit_log',     `user_id=eq.${uid}`, token),
+        sbDelete('detail_log',    `user_id=eq.${uid}`, token),
+        sbDelete('habit_library', `user_id=eq.${uid}`, token),
+      ]);
+    } catch {}
   }
+  localStorage.removeItem('kadence-cache');
+  localStorage.removeItem('kadence-offline');
+  state = { log:[], detailLog:[], streaks:{}, goalDaysHit:0, library:{} };
+  render();
+  showToast('Reset complete.');
 }
 
 // ─── PROFILE ─────────────────────────────────────────────────────────────────
@@ -2292,8 +2305,9 @@ function saveProfileField(key) {
   const profile = getProfile();
   profile[key]  = val;
   saveProfile(profile);
+  persistProfile(profile);
   renderProfileSection();
-  renderHeader(); // refresh eyebrow + weather if location changed
+  renderHeader();
   if (key === 'currentlocation' && val) fetchWeather(val);
 }
 
@@ -2369,119 +2383,413 @@ function wmoCondition(code) {
   return 'Mixed';
 }
 
-// ─── AUTH / PIN SYSTEM ────────────────────────────────────────────────────────
-// PIN stored as SHA-256 hash — never plain text.
-// Session flag lives only in memory; clears on tab/browser close.
+// ─── SUPABASE CONFIG ─────────────────────────────────────────────────────────
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │  REPLACE THESE TWO VALUES WITH YOUR OWN FROM supabase.com              │
+// │  Settings → API → Project URL and anon/public key                      │
+// └─────────────────────────────────────────────────────────────────────────┘
+const SUPABASE_URL  = 'https://wjmpbvfpxfroruuwsjve.supabase.co';   // e.g. https://xxxx.supabase.co
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqbXBidmZweGZyb3J1dXdzanZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5NjQwNjIsImV4cCI6MjEwMTU0MDA2Mn0.9_rCRtxjpaPnpb7AWSkJ0q9nNx94cgeDVUdxAXUT5_Q';      // eyJ... string
 
-let sessionUnlocked = false;
+// Supabase REST helpers — no SDK needed, plain fetch
+const sbHeaders = (token) => ({
+  'Content-Type':  'application/json',
+  'apikey':        SUPABASE_ANON,
+  'Authorization': `Bearer ${token || SUPABASE_ANON}`,
+  'Prefer':        'return=representation'
+});
 
-async function hashPin(pin) {
-  const enc = new TextEncoder().encode(pin);
-  const buf = await crypto.subtle.digest('SHA-256', enc);
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+let currentUser   = null; // { id, email, access_token, refresh_token }
+let offlineQueue  = [];   // writes that failed while offline, replayed on reconnect
+
+// ─── SESSION ──────────────────────────────────────────────────────────────────
+
+function saveSession(user) {
+  currentUser = user;
+  localStorage.setItem('kadence-session', JSON.stringify(user));
 }
 
-function getAuthRecord() {
-  try { return JSON.parse(localStorage.getItem('kadence-auth') || 'null'); } catch { return null; }
+function loadSession() {
+  try {
+    const s = localStorage.getItem('kadence-session');
+    if (s) currentUser = JSON.parse(s);
+  } catch {}
 }
 
-function saveAuthRecord(record) {
-  localStorage.setItem('kadence-auth', JSON.stringify(record));
+function clearSession() {
+  currentUser = null;
+  localStorage.removeItem('kadence-session');
 }
 
-// ── LANDING SCREEN — two options ──
+// ─── SUPABASE AUTH ────────────────────────────────────────────────────────────
+
+async function sbSignUp(email, password) {
+  const res  = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method:  'POST',
+    headers: sbHeaders(),
+    body:    JSON.stringify({ email, password })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error_description || data.msg || 'Sign up failed');
+  return data;
+}
+
+async function sbSignIn(email, password) {
+  const res  = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method:  'POST',
+    headers: sbHeaders(),
+    body:    JSON.stringify({ email, password })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error_description || data.msg || 'Sign in failed');
+  return data; // { access_token, refresh_token, user }
+}
+
+async function sbRefreshToken(refresh_token) {
+  const res  = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method:  'POST',
+    headers: sbHeaders(),
+    body:    JSON.stringify({ refresh_token })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error('Session expired');
+  return data;
+}
+
+async function sbSignOut(token) {
+  await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+    method:  'POST',
+    headers: sbHeaders(token)
+  });
+}
+
+// ─── SUPABASE DATA ────────────────────────────────────────────────────────────
+
+async function sbUpsert(table, row, token) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method:  'POST',
+    headers: { ...sbHeaders(token), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body:    JSON.stringify(row)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `upsert ${table} failed`);
+  }
+}
+
+async function sbSelect(table, filter, token) {
+  const query = filter ? `?${filter}` : '';
+  const res   = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
+    headers: sbHeaders(token)
+  });
+  if (!res.ok) throw new Error(`select ${table} failed`);
+  return res.json();
+}
+
+async function sbDelete(table, filter, token) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
+    method:  'DELETE',
+    headers: sbHeaders(token)
+  });
+  if (!res.ok) throw new Error(`delete ${table} failed`);
+}
+
+// ─── OFFLINE QUEUE ────────────────────────────────────────────────────────────
+
+function loadOfflineQueue() {
+  try { offlineQueue = JSON.parse(localStorage.getItem('kadence-offline') || '[]'); } catch { offlineQueue = []; }
+}
+
+function saveOfflineQueue() {
+  localStorage.setItem('kadence-offline', JSON.stringify(offlineQueue));
+}
+
+function enqueueWrite(op) {
+  offlineQueue.push(op);
+  saveOfflineQueue();
+}
+
+async function flushOfflineQueue() {
+  if (!currentUser || !offlineQueue.length) return;
+  const pending = [...offlineQueue];
+  offlineQueue  = [];
+  saveOfflineQueue();
+
+  for (const op of pending) {
+    try {
+      if (op.type === 'upsert')  await sbUpsert(op.table, op.row, currentUser.access_token);
+      if (op.type === 'delete')  await sbDelete(op.table, op.filter, currentUser.access_token);
+    } catch {
+      // put it back if it still fails
+      offlineQueue.push(op);
+    }
+  }
+  saveOfflineQueue();
+  if (offlineQueue.length) showToast(`${offlineQueue.length} change(s) still pending sync`);
+}
+
+// Flush when coming back online
+window.addEventListener('online', flushOfflineQueue);
+
+// ─── SAFE WRITE (online → direct, offline → queue) ───────────────────────────
+
+async function safeUpsert(table, row) {
+  if (!currentUser) return;
+  if (!navigator.onLine) {
+    enqueueWrite({ type: 'upsert', table, row });
+    return;
+  }
+  try {
+    await sbUpsert(table, row, currentUser.access_token);
+  } catch {
+    enqueueWrite({ type: 'upsert', table, row });
+  }
+}
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+
+let state = {
+  log:       [],
+  detailLog: [],
+  streaks:   { knowledge:0, admin:0, creativity:0, wellbeing:0 },
+  goalDaysHit: 0,
+  library:   {}
+};
+
+// Local cache so the app is instant on load — synced from Supabase after
+function saveLocalCache() {
+  localStorage.setItem('kadence-cache', JSON.stringify(state));
+}
+
+function loadLocalCache() {
+  try {
+    const c = localStorage.getItem('kadence-cache');
+    if (c) state = JSON.parse(c);
+  } catch {}
+}
+
+// ─── SYNC FROM SUPABASE ───────────────────────────────────────────────────────
+
+async function syncFromSupabase() {
+  if (!currentUser || !navigator.onLine) return;
+  try {
+    const token = currentUser.access_token;
+    const uid   = currentUser.id;
+
+    const [logs, details, libRows] = await Promise.all([
+      sbSelect('habit_log',  `user_id=eq.${uid}&order=created_at.asc`, token),
+      sbSelect('detail_log', `user_id=eq.${uid}&order=created_at.asc`, token),
+      sbSelect('habit_library', `user_id=eq.${uid}`, token)
+    ]);
+
+    state.log = logs.map(r => ({
+      id: r.id, date: r.date, habitId: r.habit_id,
+      entry: r.entry, activity: r.activity || '', context: r.context || '',
+      tags: r.tags || [], notes: r.notes || '', excluded: r.excluded || false
+    }));
+
+    state.detailLog = details.map(r => ({
+      id: r.id, date: r.date, title: r.title,
+      deck: r.deck, spread: r.spread, interpretation: r.interpretation,
+      cards: r.cards || [], tags: r.tags || [], notes: r.notes || ''
+    }));
+
+    if (libRows.length) state.library = libRows[0].library || {};
+
+    saveLocalCache();
+    render();
+  } catch (e) {
+    console.warn('Sync failed, using cache:', e.message);
+  }
+}
+
+async function syncProfileFromSupabase() {
+  if (!currentUser || !navigator.onLine) return;
+  try {
+    const rows = await sbSelect('profiles', `id=eq.${currentUser.id}`, currentUser.access_token);
+    if (rows.length) {
+      localStorage.setItem('kadence-profile', JSON.stringify(rows[0]));
+      renderProfileSection();
+      renderHeader();
+    }
+  } catch {}
+}
+
+// ─── SAVE HELPERS (called by logEntry, saveProfileField etc.) ─────────────────
+
+async function persistLogEntry(entry) {
+  await safeUpsert('habit_log', {
+    id:         entry.id,
+    user_id:    currentUser.id,
+    date:       entry.date,
+    habit_id:   entry.habitId,
+    entry:      entry.entry,
+    activity:   entry.activity,
+    context:    entry.context,
+    tags:       entry.tags,
+    notes:      entry.notes,
+    excluded:   entry.excluded
+  });
+}
+
+async function persistDetailEntry(d) {
+  await safeUpsert('detail_log', {
+    id:             d.id,
+    user_id:        currentUser.id,
+    date:           d.date,
+    title:          d.title,
+    deck:           d.deck,
+    spread:         d.spread,
+    interpretation: d.interpretation,
+    cards:          d.cards,
+    tags:           d.tags,
+    notes:          d.notes
+  });
+}
+
+async function persistLibrary() {
+  await safeUpsert('habit_library', {
+    user_id: currentUser.id,
+    library: state.library,
+    updated_at: new Date().toISOString()
+  });
+}
+
+async function persistProfile(profile) {
+  await safeUpsert('profiles', {
+    id:              currentUser.id,
+    nickname:        profile.nickname || null,
+    email:           profile.email || currentUser.email,
+    birthdate:       profile.birthdate || null,
+    birthtime:       profile.birthtime || null,
+    birthlocation:   profile.birthlocation || null,
+    currentlocation: profile.currentlocation || null,
+    updated_at:      new Date().toISOString()
+  });
+}
+
+// ─── AUTH SCREENS ─────────────────────────────────────────────────────────────
+
 function showLandingScreen() {
   document.getElementById('lock-card').innerHTML = `
     <div class="lock-card-title" style="text-align:center;margin-bottom:6px">Get started</div>
     <div class="lock-card-sub" style="text-align:center;margin-bottom:20px">New here or returning?</div>
-    <button class="lock-btn" onclick="showSetupScreen()">Create Access</button>
+    <button class="lock-btn" onclick="showSetupScreen()">Create Account</button>
     <div class="lock-divider">or</div>
     <button class="lock-btn-secondary" onclick="showLoginScreen()">Sign In</button>
   `;
 }
 
-// ── SETUP SCREEN ──
 function showSetupScreen() {
   document.getElementById('lock-card').innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
       <button onclick="showLandingScreen()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;padding:0;line-height:1">←</button>
       <div>
-        <div class="lock-card-title">Create Access</div>
-        <div style="font-size:12px;color:var(--text-dim)">Stored only on this device</div>
+        <div class="lock-card-title">Create Account</div>
+        <div style="font-size:12px;color:var(--text-dim)">Works on every device</div>
       </div>
     </div>
-    <input class="lock-input" id="setup-username" type="text" placeholder="Username"
-      autocomplete="off" autocorrect="off" spellcheck="false" />
-    <input class="lock-input" id="setup-pin" type="password" inputmode="numeric"
-      placeholder="PIN (4–12 characters)" autocomplete="new-password" />
-    <input class="lock-input" id="setup-pin2" type="password" inputmode="numeric"
-      placeholder="Confirm PIN" autocomplete="new-password" />
-    <button class="lock-btn" onclick="submitSetup()">Create Access</button>
+    <input class="lock-input" id="setup-email" type="email" placeholder="Email address"
+      autocomplete="email" />
+    <input class="lock-input" id="setup-password" type="password"
+      placeholder="Password (8+ characters)" autocomplete="new-password" />
+    <input class="lock-input" id="setup-password2" type="password"
+      placeholder="Confirm password" autocomplete="new-password" />
+    <button class="lock-btn" id="setup-btn" onclick="submitSetup()">Create Account</button>
     <div class="lock-error" id="setup-error"></div>
   `;
-  document.getElementById('setup-username').focus();
-  ['setup-username','setup-pin','setup-pin2'].forEach(id => {
+  document.getElementById('setup-email').focus();
+  ['setup-email','setup-password','setup-password2'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') submitSetup(); });
   });
 }
 
-// ── LOGIN SCREEN ──
 function showLoginScreen() {
   document.getElementById('lock-card').innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
       <button onclick="showLandingScreen()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;padding:0;line-height:1">←</button>
       <div class="lock-card-title">Sign In</div>
     </div>
-    <input class="lock-input" id="login-pin" type="password" inputmode="numeric"
-      placeholder="PIN" autocomplete="current-password" />
-    <button class="lock-btn" onclick="submitLogin()">Unlock</button>
+    <input class="lock-input" id="login-email" type="email" placeholder="Email address"
+      autocomplete="email" />
+    <input class="lock-input" id="login-password" type="password"
+      placeholder="Password" autocomplete="current-password" />
+    <button class="lock-btn" id="login-btn" onclick="submitLogin()">Sign In</button>
     <div class="lock-error" id="login-error"></div>
-    <div class="lock-attempts" id="login-attempts"></div>
   `;
-  document.getElementById('login-pin').focus();
-  document.getElementById('login-pin').addEventListener('keydown', e => { if(e.key==='Enter') submitLogin(); });
+  document.getElementById('login-email').focus();
+  ['login-email','login-password'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') submitLogin(); });
+  });
+}
+
+function setLockBtnLoading(btnId, loading, label) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled  = loading;
+  btn.textContent = loading ? 'Please wait…' : label;
+  btn.style.opacity = loading ? '0.6' : '1';
 }
 
 async function submitSetup() {
-  const username = document.getElementById('setup-username').value.trim();
-  const pin      = document.getElementById('setup-pin').value;
-  const pin2     = document.getElementById('setup-pin2').value;
-  const errEl    = document.getElementById('setup-error');
+  const email  = document.getElementById('setup-email').value.trim();
+  const pass   = document.getElementById('setup-password').value;
+  const pass2  = document.getElementById('setup-password2').value;
+  const errEl  = document.getElementById('setup-error');
 
-  if (!username) { showError('setup-username', errEl, 'Choose a username.'); return; }
-  if (pin.length < 4) { showError('setup-pin', errEl, 'PIN must be at least 4 characters.'); return; }
-  if (pin !== pin2)   { showError('setup-pin2', errEl, "PINs don't match."); return; }
+  errEl.textContent = '';
+  if (!email)          { showLockError('setup-email', errEl, 'Enter your email.'); return; }
+  if (pass.length < 8) { showLockError('setup-password', errEl, 'Password must be 8+ characters.'); return; }
+  if (pass !== pass2)  { showLockError('setup-password2', errEl, "Passwords don't match."); return; }
 
-  const hashed = await hashPin(pin);
-  saveAuthRecord({ username, pinHash: hashed, attempts: 0 });
-  unlock();
-}
-
-async function submitLogin() {
-  const pin   = document.getElementById('login-pin').value;
-  const errEl = document.getElementById('login-error');
-  const attEl = document.getElementById('login-attempts');
-  const auth  = getAuthRecord();
-  if (!auth) { showLandingScreen(); return; }
-
-  const hashed = await hashPin(pin);
-  if (hashed === auth.pinHash) {
-    auth.attempts = 0;
-    saveAuthRecord(auth);
-    unlock();
-  } else {
-    auth.attempts = (auth.attempts || 0) + 1;
-    saveAuthRecord(auth);
-    showError('login-pin', errEl, 'Wrong PIN.');
-    if (auth.attempts >= 3) {
-      attEl.textContent = `${auth.attempts} failed attempt${auth.attempts > 1 ? 's' : ''}. No lockout — keep trying.`;
-    }
-    document.getElementById('login-pin').value = '';
-    document.getElementById('login-pin').focus();
+  setLockBtnLoading('setup-btn', true, 'Create Account');
+  try {
+    const data = await sbSignUp(email, pass);
+    // Supabase returns user immediately if email confirm is off
+    const user = {
+      id:            data.user?.id,
+      email:         data.user?.email,
+      access_token:  data.access_token,
+      refresh_token: data.refresh_token
+    };
+    saveSession(user);
+    await unlock();
+  } catch(e) {
+    errEl.textContent = e.message;
+  } finally {
+    setLockBtnLoading('setup-btn', false, 'Create Account');
   }
 }
 
-function showError(inputId, errEl, msg) {
+async function submitLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+
+  errEl.textContent = '';
+  if (!email || !pass) { errEl.textContent = 'Enter your email and password.'; return; }
+
+  setLockBtnLoading('login-btn', true, 'Sign In');
+  try {
+    const data = await sbSignIn(email, pass);
+    const user = {
+      id:            data.user.id,
+      email:         data.user.email,
+      access_token:  data.access_token,
+      refresh_token: data.refresh_token
+    };
+    saveSession(user);
+    await unlock();
+  } catch(e) {
+    errEl.textContent = e.message;
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-password').focus();
+  } finally {
+    setLockBtnLoading('login-btn', false, 'Sign In');
+  }
+}
+
+function showLockError(inputId, errEl, msg) {
   errEl.textContent = msg;
   const input = document.getElementById(inputId);
   if (input) {
@@ -2490,25 +2798,54 @@ function showError(inputId, errEl, msg) {
   }
 }
 
-function unlock() {
-  sessionUnlocked = true;
+async function unlock() {
   document.getElementById('lock-screen').classList.remove('visible');
-  loadState();
+  loadLocalCache();   // show cached data instantly
   render();
+  await syncFromSupabase();    // then pull fresh from server
+  await syncProfileFromSupabase();
+  await flushOfflineQueue();   // replay any queued writes
 }
 
-function checkAuth() {
-  const auth = getAuthRecord();
-  // If account exists, go straight to Sign In — no need to choose
-  if (auth) {
+async function checkAuth() {
+  loadSession();
+  if (!currentUser) { showLandingScreen(); return; }
+
+  // Try to refresh the token silently
+  try {
+    if (currentUser.refresh_token) {
+      const data = await sbRefreshToken(currentUser.refresh_token);
+      saveSession({
+        id:            currentUser.id,
+        email:         currentUser.email,
+        access_token:  data.access_token,
+        refresh_token: data.refresh_token
+      });
+    }
+    await unlock();
+  } catch {
+    // Token expired — show sign in
+    clearSession();
     showLoginScreen();
-  } else {
-    // First time ever — show landing with both options
-    showLandingScreen();
   }
 }
 
-// Add lock button to settings
+// ─── SIGN OUT ────────────────────────────────────────────────────────────────
+
+async function signOut() {
+  if (currentUser) {
+    try { await sbSignOut(currentUser.access_token); } catch {}
+  }
+  clearSession();
+  localStorage.removeItem('kadence-cache');
+  localStorage.removeItem('kadence-profile');
+  state = { log:[], detailLog:[], streaks:{}, goalDaysHit:0, library:{} };
+  document.getElementById('lock-screen').classList.add('visible');
+  showLandingScreen();
+}
+
+// ─── RENDER LOCK BUTTON (now Sign Out) ────────────────────────────────────────
+
 function renderLockButton() {
   const existing = document.getElementById('lock-now-btn');
   if (existing) return;
@@ -2516,20 +2853,15 @@ function renderLockButton() {
   btn.id = 'lock-now-btn';
   btn.className = 'danger-btn';
   btn.style.cssText = 'background:var(--bg2);border-color:var(--border);color:var(--text-mid);margin-bottom:10px';
-  btn.textContent = 'Lock app';
-  btn.onclick = lockApp;
+  btn.textContent = 'Sign out';
+  btn.onclick = signOut;
   const dangerBtn = document.querySelector('.settings-view .danger-btn');
-  dangerBtn.parentNode.insertBefore(btn, dangerBtn);
-}
-
-function lockApp() {
-  sessionUnlocked = false;
-  document.getElementById('lock-screen').classList.add('visible');
-  showLoginScreen();
+  if (dangerBtn) dangerBtn.parentNode.insertBefore(btn, dangerBtn);
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 
+loadOfflineQueue();
 checkAuth();
 </script>
 </body>
