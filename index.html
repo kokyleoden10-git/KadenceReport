@@ -1276,44 +1276,64 @@ function renderHabitCards() {
 }
 
 // ─── DYNAMIC ACTIVITY / CONTEXT LIBRARY ──────────────────────────────────────
-// state.library = { habitId: { activityName: [context1, context2, ...], ... } }
-// Seeded from HABITS defaults, grows as user adds new items via "Other".
+// state.library = { habitId: { activityName: [ctx1, ctx2, ...], ... } }
+// Each activity has its OWN context list. Grows as user adds via "Other".
+
+// Default per-activity context mappings — specific to each activity
+const ACTIVITY_CONTEXT_DEFAULTS = {
+  knowledge: {
+    'Reading':            ['Physical Book', 'Audiobook', 'Kindle'],
+    'Hiragana Practice':  ['Duolingo', 'Physical Workbook', 'Anki'],
+    'Grammar Practice':   ['Duolingo', 'Physical Workbook', 'YouTube'],
+    'Vocab Review':       ['Duolingo', 'WaniKani', 'Anki', 'Flashcards'],
+    'Kanji Review':       ['WaniKani', 'Anki', 'Physical Workbook'],
+    'Workbook Practice':  ['Physical Workbook'],
+    'Language Lesson':    ['Duolingo', 'YouTube', 'Private Tutor', 'App'],
+  },
+  admin: {
+    'House Chores':        ['Kitchen', 'Bathroom', 'Bedroom', 'Living Room'],
+    'Groceries':           ['Supermarket', 'Online Order', 'Farmers Market'],
+    'Health Appointment':  ['Dr. Office', 'Dentist', 'Therapist', 'Telehealth'],
+    'Errands':             ['Post Office', 'Pharmacy', 'Bank', 'Other Location'],
+    'Filing/Organizing':   ['Office', 'Digital', 'Home'],
+  },
+  creativity: {
+    'Music Discovery & Playlist Building': ['Spotify', 'SoundCloud', 'Bandcamp', 'YouTube'],
+    'DJing Practice':                      ['Rekordbox', 'Serato', 'Controller', 'CDJs'],
+    'Beat Making':                         ['Ableton', 'FL Studio', 'GarageBand', 'MPC'],
+    'Music Theory':                        ['YouTube', 'Physical Book', 'App', 'Online Course'],
+  },
+  wellbeing: {
+    'Tarot Reading':    ['Self', 'AI-Assisted', 'YouTube'],
+    'Astrology Study':  ['Self', 'App', 'YouTube', 'Physical Book'],
+    'Meditation':       ['Unguided', 'App', 'YouTube', 'In Person'],
+    'Journaling':       ['Physical Journal', 'Digital', 'Voice Memo'],
+    'Alcohol':          ['Social', 'Solo'],
+    'Marijuana':        ['Social', 'Solo'],
+  }
+};
 
 function getLibrary(habitId) {
   if (!state.library) state.library = {};
   if (!state.library[habitId]) {
-    // seed from HABITS defaults (strip "Other" — that's always the add-new trigger)
-    const h = HABITS.find(h => h.id === habitId);
-    const lib = {};
-    h.activities.filter(a => a !== 'Other').forEach(a => {
-      lib[a] = h.contexts.filter(c => c !== 'Other');
-    });
-    state.library[habitId] = lib;
+    // Seed from per-activity defaults
+    state.library[habitId] = JSON.parse(JSON.stringify(
+      ACTIVITY_CONTEXT_DEFAULTS[habitId] || {}
+    ));
   }
   return state.library[habitId];
 }
 
 function getActivities(habitId) {
   const lib = getLibrary(habitId);
-  return [...Object.keys(lib), 'Other'];
+  return [...Object.keys(lib), '+ Add new activity'];
 }
 
 function getContexts(habitId, activity) {
-  if (!activity || activity === 'Other') return ['Other'];
+  if (!activity || activity === '+ Add new activity') return ['+ Add new context'];
   const lib = getLibrary(habitId);
   const ctxs = lib[activity] || [];
-  return [...ctxs, 'Other'];
-}
-
-function saveNewActivity(habitId, activityName) {
-  const lib = getLibrary(habitId);
-  if (!lib[activityName]) {
-    const h = HABITS.find(h => h.id === habitId);
-    lib[activityName] = h.contexts.filter(c => c !== 'Other');
-  }
-  if (!state.library) state.library = {};
-  state.library[habitId] = lib;
-  saveState();
+  return [...ctxs, '+ Add new context'];
 }
 
 function saveNewContext(habitId, activity, contextName) {
@@ -1332,10 +1352,10 @@ function buildLogForm(h) {
   const isWellbeing = h.id === 'wellbeing';
 
   const actOptions = activities.map(a =>
-    `<option value="${a}">${a === 'Other' ? '+ Add new activity' : a}</option>`
+    `<option value="${a}">${a}</option>`
   ).join('');
   const ctxOptions = contexts.map(c =>
-    `<option value="${c}">${c === 'Other' ? '+ Add new context' : c}</option>`
+    `<option value="${c}">${c}</option>`
   ).join('');
 
   return `
@@ -1358,7 +1378,7 @@ function buildLogForm(h) {
       </div>
     </div>
 
-    <!-- New activity input (hidden until "Other" selected) -->
+    <!-- New activity input -->
     <div id="new-activity-row-${h.id}" style="display:none;margin-top:8px">
       <label class="form-label">New activity name</label>
       <div class="new-item-row">
@@ -1367,7 +1387,7 @@ function buildLogForm(h) {
       </div>
     </div>
 
-    <!-- New context input (hidden until "Other" selected in context) -->
+    <!-- New context input -->
     <div id="new-context-row-${h.id}" style="display:none;margin-top:8px">
       <label class="form-label">New context name</label>
       <div class="new-item-row">
@@ -1415,38 +1435,27 @@ function buildLogForm(h) {
 function onActivityChange(habitId) {
   const actEl = document.getElementById(`activity-${habitId}`);
   const val = actEl.value;
+  const isAddNew = val === '+ Add new activity';
 
-  // show/hide new activity input
-  const newActRow = document.getElementById(`new-activity-row-${habitId}`);
-  newActRow.style.display = val === 'Other' ? 'block' : 'none';
-  if (val === 'Other') {
-    document.getElementById(`new-activity-${habitId}`).focus();
-  }
+  document.getElementById(`new-activity-row-${habitId}`).style.display = isAddNew ? 'block' : 'none';
+  if (isAddNew) document.getElementById(`new-activity-${habitId}`).focus();
 
-  // update context dropdown based on selected activity
-  refreshContextDropdown(habitId, val === 'Other' ? null : val);
-
-  // exclusion check
+  refreshContextDropdown(habitId, isAddNew ? null : val);
   checkExclusion(habitId);
 }
 
 function onContextChange(habitId) {
   const ctxEl = document.getElementById(`context-${habitId}`);
-  const newCtxRow = document.getElementById(`new-context-row-${habitId}`);
-  newCtxRow.style.display = ctxEl.value === 'Other' ? 'block' : 'none';
-  if (ctxEl.value === 'Other') {
-    document.getElementById(`new-context-${habitId}`).focus();
-  }
+  const isAddNew = ctxEl.value === '+ Add new context';
+  document.getElementById(`new-context-row-${habitId}`).style.display = isAddNew ? 'block' : 'none';
+  if (isAddNew) document.getElementById(`new-context-${habitId}`).focus();
 }
 
 function refreshContextDropdown(habitId, activity) {
   const ctxEl = document.getElementById(`context-${habitId}`);
   if (!ctxEl) return;
   const contexts = getContexts(habitId, activity);
-  ctxEl.innerHTML = contexts.map(c =>
-    `<option value="${c}">${c === 'Other' ? '+ Add new context' : c}</option>`
-  ).join('');
-  // hide new context row since selection reset
+  ctxEl.innerHTML = contexts.map(c => `<option value="${c}">${c}</option>`).join('');
   const newCtxRow = document.getElementById(`new-context-row-${habitId}`);
   if (newCtxRow) newCtxRow.style.display = 'none';
 }
@@ -1456,16 +1465,17 @@ function confirmNewActivity(habitId) {
   const name = input.value.trim();
   if (!name) { input.focus(); return; }
 
-  saveNewActivity(habitId, name);
+  const lib = getLibrary(habitId);
+  if (!lib[name]) lib[name] = [];
+  if (!state.library) state.library = {};
+  state.library[habitId] = lib;
+  saveState();
 
-  // rebuild activity dropdown with new item selected
   const actEl = document.getElementById(`activity-${habitId}`);
-  const activities = getActivities(habitId);
-  actEl.innerHTML = activities.map(a =>
-    `<option value="${a}" ${a === name ? 'selected' : ''}>${a === 'Other' ? '+ Add new activity' : a}</option>`
+  actEl.innerHTML = getActivities(habitId).map(a =>
+    `<option value="${a}" ${a === name ? 'selected' : ''}>${a}</option>`
   ).join('');
 
-  // hide new activity row, refresh contexts for new activity
   document.getElementById(`new-activity-row-${habitId}`).style.display = 'none';
   input.value = '';
   refreshContextDropdown(habitId, name);
@@ -1477,15 +1487,13 @@ function confirmNewContext(habitId) {
   const activity = actEl.value;
   const input = document.getElementById(`new-context-${habitId}`);
   const name = input.value.trim();
-  if (!name || activity === 'Other') { input.focus(); return; }
+  if (!name || activity === '+ Add new activity') { input.focus(); return; }
 
   saveNewContext(habitId, activity, name);
 
-  // rebuild context dropdown with new item selected
   const ctxEl = document.getElementById(`context-${habitId}`);
-  const contexts = getContexts(habitId, activity);
-  ctxEl.innerHTML = contexts.map(c =>
-    `<option value="${c}" ${c === name ? 'selected' : ''}>${c === 'Other' ? '+ Add new context' : c}</option>`
+  ctxEl.innerHTML = getContexts(habitId, activity).map(c =>
+    `<option value="${c}" ${c === name ? 'selected' : ''}>${c}</option>`
   ).join('');
 
   document.getElementById(`new-context-row-${habitId}`).style.display = 'none';
