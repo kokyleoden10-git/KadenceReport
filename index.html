@@ -762,6 +762,65 @@
       margin-top: 4px;
     }
     .lock-btn:active { opacity: 0.75; }
+    .lock-btn-secondary {
+      width: 100%;
+      padding: 13px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-mid);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s, border-color 0.15s;
+      margin-top: 8px;
+    }
+    .lock-btn-secondary:active { opacity: 0.75; }
+    .lock-btn-secondary:hover { border-color: rgba(240,237,230,0.2); }
+    .lock-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0;
+      color: var(--text-dim);
+      font-size: 11px;
+    }
+    .lock-divider::before, .lock-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .new-item-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .new-item-input {
+      flex: 1;
+      background: var(--bg3);
+      border: 1px solid rgba(125,181,160,0.4);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      padding: 8px 11px;
+      outline: none;
+    }
+    .new-item-input:focus { border-color: var(--sage); }
+    .new-item-save {
+      background: var(--sage-dim);
+      border: 1px solid rgba(125,181,160,0.3);
+      border-radius: var(--radius-sm);
+      color: var(--sage);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
     .lock-error {
       font-size: 12px;
       color: #E07070;
@@ -1216,10 +1275,68 @@ function renderHabitCards() {
   });
 }
 
+// ─── DYNAMIC ACTIVITY / CONTEXT LIBRARY ──────────────────────────────────────
+// state.library = { habitId: { activityName: [context1, context2, ...], ... } }
+// Seeded from HABITS defaults, grows as user adds new items via "Other".
+
+function getLibrary(habitId) {
+  if (!state.library) state.library = {};
+  if (!state.library[habitId]) {
+    // seed from HABITS defaults (strip "Other" — that's always the add-new trigger)
+    const h = HABITS.find(h => h.id === habitId);
+    const lib = {};
+    h.activities.filter(a => a !== 'Other').forEach(a => {
+      lib[a] = h.contexts.filter(c => c !== 'Other');
+    });
+    state.library[habitId] = lib;
+  }
+  return state.library[habitId];
+}
+
+function getActivities(habitId) {
+  const lib = getLibrary(habitId);
+  return [...Object.keys(lib), 'Other'];
+}
+
+function getContexts(habitId, activity) {
+  if (!activity || activity === 'Other') return ['Other'];
+  const lib = getLibrary(habitId);
+  const ctxs = lib[activity] || [];
+  return [...ctxs, 'Other'];
+}
+
+function saveNewActivity(habitId, activityName) {
+  const lib = getLibrary(habitId);
+  if (!lib[activityName]) {
+    const h = HABITS.find(h => h.id === habitId);
+    lib[activityName] = h.contexts.filter(c => c !== 'Other');
+  }
+  if (!state.library) state.library = {};
+  state.library[habitId] = lib;
+  saveState();
+}
+
+function saveNewContext(habitId, activity, contextName) {
+  const lib = getLibrary(habitId);
+  if (!lib[activity]) lib[activity] = [];
+  if (!lib[activity].includes(contextName)) lib[activity].push(contextName);
+  if (!state.library) state.library = {};
+  state.library[habitId] = lib;
+  saveState();
+}
+
 function buildLogForm(h) {
-  const actOptions = h.activities.map(a => `<option value="${a}">${a}</option>`).join('');
-  const ctxOptions = h.contexts.map(c => `<option value="${c}">${c}</option>`).join('');
+  const activities = getActivities(h.id);
+  const firstActivity = activities[0];
+  const contexts = getContexts(h.id, firstActivity);
   const isWellbeing = h.id === 'wellbeing';
+
+  const actOptions = activities.map(a =>
+    `<option value="${a}">${a === 'Other' ? '+ Add new activity' : a}</option>`
+  ).join('');
+  const ctxOptions = contexts.map(c =>
+    `<option value="${c}">${c === 'Other' ? '+ Add new context' : c}</option>`
+  ).join('');
 
   return `
     <div class="form-row">
@@ -1229,18 +1346,37 @@ function buildLogForm(h) {
     <div class="form-row-2">
       <div class="form-row" style="margin-bottom:0">
         <label class="form-label">Activity</label>
-        <select class="form-select" id="activity-${h.id}" onchange="checkExclusion('${h.id}')">
+        <select class="form-select" id="activity-${h.id}" onchange="onActivityChange('${h.id}')">
           ${actOptions}
         </select>
       </div>
       <div class="form-row" style="margin-bottom:0">
         <label class="form-label">Context</label>
-        <select class="form-select" id="context-${h.id}">
+        <select class="form-select" id="context-${h.id}" onchange="onContextChange('${h.id}')">
           ${ctxOptions}
         </select>
       </div>
     </div>
-    <div id="exclude-note-${h.id}" class="exclude-note" style="display:none">
+
+    <!-- New activity input (hidden until "Other" selected) -->
+    <div id="new-activity-row-${h.id}" style="display:none;margin-top:8px">
+      <label class="form-label">New activity name</label>
+      <div class="new-item-row">
+        <input class="new-item-input" id="new-activity-${h.id}" placeholder="e.g. Podcast Listening" />
+        <button class="new-item-save" onclick="confirmNewActivity('${h.id}')">Save</button>
+      </div>
+    </div>
+
+    <!-- New context input (hidden until "Other" selected in context) -->
+    <div id="new-context-row-${h.id}" style="display:none;margin-top:8px">
+      <label class="form-label">New context name</label>
+      <div class="new-item-row">
+        <input class="new-item-input" id="new-context-${h.id}" placeholder="e.g. Apple Podcasts" />
+        <button class="new-item-save" onclick="confirmNewContext('${h.id}')">Save</button>
+      </div>
+    </div>
+
+    <div id="exclude-note-${h.id}" class="exclude-note" style="display:none;margin-top:8px">
       ⚠️ This activity is tracked for awareness only and won't count toward your streak or daily goal.
     </div>
     <div class="form-row" style="margin-top:10px">
@@ -1274,6 +1410,87 @@ function buildLogForm(h) {
       Log this entry
     </button>
   `;
+}
+
+function onActivityChange(habitId) {
+  const actEl = document.getElementById(`activity-${habitId}`);
+  const val = actEl.value;
+
+  // show/hide new activity input
+  const newActRow = document.getElementById(`new-activity-row-${habitId}`);
+  newActRow.style.display = val === 'Other' ? 'block' : 'none';
+  if (val === 'Other') {
+    document.getElementById(`new-activity-${habitId}`).focus();
+  }
+
+  // update context dropdown based on selected activity
+  refreshContextDropdown(habitId, val === 'Other' ? null : val);
+
+  // exclusion check
+  checkExclusion(habitId);
+}
+
+function onContextChange(habitId) {
+  const ctxEl = document.getElementById(`context-${habitId}`);
+  const newCtxRow = document.getElementById(`new-context-row-${habitId}`);
+  newCtxRow.style.display = ctxEl.value === 'Other' ? 'block' : 'none';
+  if (ctxEl.value === 'Other') {
+    document.getElementById(`new-context-${habitId}`).focus();
+  }
+}
+
+function refreshContextDropdown(habitId, activity) {
+  const ctxEl = document.getElementById(`context-${habitId}`);
+  if (!ctxEl) return;
+  const contexts = getContexts(habitId, activity);
+  ctxEl.innerHTML = contexts.map(c =>
+    `<option value="${c}">${c === 'Other' ? '+ Add new context' : c}</option>`
+  ).join('');
+  // hide new context row since selection reset
+  const newCtxRow = document.getElementById(`new-context-row-${habitId}`);
+  if (newCtxRow) newCtxRow.style.display = 'none';
+}
+
+function confirmNewActivity(habitId) {
+  const input = document.getElementById(`new-activity-${habitId}`);
+  const name = input.value.trim();
+  if (!name) { input.focus(); return; }
+
+  saveNewActivity(habitId, name);
+
+  // rebuild activity dropdown with new item selected
+  const actEl = document.getElementById(`activity-${habitId}`);
+  const activities = getActivities(habitId);
+  actEl.innerHTML = activities.map(a =>
+    `<option value="${a}" ${a === name ? 'selected' : ''}>${a === 'Other' ? '+ Add new activity' : a}</option>`
+  ).join('');
+
+  // hide new activity row, refresh contexts for new activity
+  document.getElementById(`new-activity-row-${habitId}`).style.display = 'none';
+  input.value = '';
+  refreshContextDropdown(habitId, name);
+  showToast(`Activity "${name}" saved ✓`);
+}
+
+function confirmNewContext(habitId) {
+  const actEl = document.getElementById(`activity-${habitId}`);
+  const activity = actEl.value;
+  const input = document.getElementById(`new-context-${habitId}`);
+  const name = input.value.trim();
+  if (!name || activity === 'Other') { input.focus(); return; }
+
+  saveNewContext(habitId, activity, name);
+
+  // rebuild context dropdown with new item selected
+  const ctxEl = document.getElementById(`context-${habitId}`);
+  const contexts = getContexts(habitId, activity);
+  ctxEl.innerHTML = contexts.map(c =>
+    `<option value="${c}" ${c === name ? 'selected' : ''}>${c === 'Other' ? '+ Add new context' : c}</option>`
+  ).join('');
+
+  document.getElementById(`new-context-row-${habitId}`).style.display = 'none';
+  input.value = '';
+  showToast(`Context "${name}" saved ✓`);
 }
 
 function buildTodaysEntries(entries, h) {
@@ -1432,7 +1649,6 @@ function checkExclusion(habitId) {
   if (!h || !actEl || !noteEl) return;
   const excluded = h.excludedActivities.includes(actEl.value);
   noteEl.style.display = excluded ? 'block' : 'none';
-
   // show tarot fields if tarot selected in wellbeing
   const tarotFields = document.getElementById(`tarot-fields-${habitId}`);
   if (tarotFields) {
@@ -1591,8 +1807,8 @@ function confirmReset() {
 }
 
 // ─── AUTH / PIN SYSTEM ────────────────────────────────────────────────────────
-// PIN is stored as a SHA-256 hash — never plain text.
-// Session flag lives only in memory; clears on tab close.
+// PIN stored as SHA-256 hash — never plain text.
+// Session flag lives only in memory; clears on tab/browser close.
 
 let sessionUnlocked = false;
 
@@ -1610,32 +1826,49 @@ function saveAuthRecord(record) {
   localStorage.setItem('kadence-auth', JSON.stringify(record));
 }
 
-// Show the lock screen in setup mode (first time)
+// ── LANDING SCREEN — two options ──
+function showLandingScreen() {
+  document.getElementById('lock-card').innerHTML = `
+    <div class="lock-card-title" style="text-align:center;margin-bottom:6px">Get started</div>
+    <div class="lock-card-sub" style="text-align:center;margin-bottom:20px">New here or returning?</div>
+    <button class="lock-btn" onclick="showSetupScreen()">Create Access</button>
+    <div class="lock-divider">or</div>
+    <button class="lock-btn-secondary" onclick="showLoginScreen()">Sign In</button>
+  `;
+}
+
+// ── SETUP SCREEN ──
 function showSetupScreen() {
   document.getElementById('lock-card').innerHTML = `
-    <div class="lock-card-title">Create your access</div>
-    <div class="lock-card-sub">Set a username and PIN. These are stored only on this device — pick something only you'd know.</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+      <button onclick="showLandingScreen()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;padding:0;line-height:1">←</button>
+      <div>
+        <div class="lock-card-title">Create Access</div>
+        <div style="font-size:12px;color:var(--text-dim)">Stored only on this device</div>
+      </div>
+    </div>
     <input class="lock-input" id="setup-username" type="text" placeholder="Username"
       autocomplete="off" autocorrect="off" spellcheck="false" />
     <input class="lock-input" id="setup-pin" type="password" inputmode="numeric"
-      placeholder="PIN (4–12 digits)" autocomplete="new-password" />
+      placeholder="PIN (4–12 characters)" autocomplete="new-password" />
     <input class="lock-input" id="setup-pin2" type="password" inputmode="numeric"
       placeholder="Confirm PIN" autocomplete="new-password" />
-    <button class="lock-btn" onclick="submitSetup()">Create access</button>
+    <button class="lock-btn" onclick="submitSetup()">Create Access</button>
     <div class="lock-error" id="setup-error"></div>
   `;
   document.getElementById('setup-username').focus();
-  // allow Enter key
   ['setup-username','setup-pin','setup-pin2'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') submitSetup(); });
   });
 }
 
-// Show the lock screen in login mode
-function showLoginScreen(username) {
+// ── LOGIN SCREEN ──
+function showLoginScreen() {
   document.getElementById('lock-card').innerHTML = `
-    <div class="lock-card-title">Welcome back</div>
-    <div class="lock-card-sub">Enter your PIN to continue.</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+      <button onclick="showLandingScreen()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;padding:0;line-height:1">←</button>
+      <div class="lock-card-title">Sign In</div>
+    </div>
     <input class="lock-input" id="login-pin" type="password" inputmode="numeric"
       placeholder="PIN" autocomplete="current-password" />
     <button class="lock-btn" onclick="submitLogin()">Unlock</button>
@@ -1653,8 +1886,8 @@ async function submitSetup() {
   const errEl    = document.getElementById('setup-error');
 
   if (!username) { showError('setup-username', errEl, 'Choose a username.'); return; }
-  if (pin.length < 4) { showError('setup-pin', errEl, 'PIN must be at least 4 digits.'); return; }
-  if (pin !== pin2)   { showError('setup-pin2', errEl, 'PINs don\'t match.'); return; }
+  if (pin.length < 4) { showError('setup-pin', errEl, 'PIN must be at least 4 characters.'); return; }
+  if (pin !== pin2)   { showError('setup-pin2', errEl, "PINs don't match."); return; }
 
   const hashed = await hashPin(pin);
   saveAuthRecord({ username, pinHash: hashed, attempts: 0 });
@@ -1666,7 +1899,7 @@ async function submitLogin() {
   const errEl = document.getElementById('login-error');
   const attEl = document.getElementById('login-attempts');
   const auth  = getAuthRecord();
-  if (!auth) { showSetupScreen(); return; }
+  if (!auth) { showLandingScreen(); return; }
 
   const hashed = await hashPin(pin);
   if (hashed === auth.pinHash) {
@@ -1678,7 +1911,7 @@ async function submitLogin() {
     saveAuthRecord(auth);
     showError('login-pin', errEl, 'Wrong PIN.');
     if (auth.attempts >= 3) {
-      attEl.textContent = `${auth.attempts} failed attempt${auth.attempts>1?'s':''}. No lockout — just keep trying.`;
+      attEl.textContent = `${auth.attempts} failed attempt${auth.attempts > 1 ? 's' : ''}. No lockout — keep trying.`;
     }
     document.getElementById('login-pin').value = '';
     document.getElementById('login-pin').focus();
@@ -1703,10 +1936,12 @@ function unlock() {
 
 function checkAuth() {
   const auth = getAuthRecord();
-  if (!auth) {
-    showSetupScreen();
+  // If account exists, go straight to Sign In — no need to choose
+  if (auth) {
+    showLoginScreen();
   } else {
-    showLoginScreen(auth.username);
+    // First time ever — show landing with both options
+    showLandingScreen();
   }
 }
 
@@ -1726,9 +1961,8 @@ function renderLockButton() {
 
 function lockApp() {
   sessionUnlocked = false;
-  const auth = getAuthRecord();
   document.getElementById('lock-screen').classList.add('visible');
-  showLoginScreen(auth ? auth.username : '');
+  showLoginScreen();
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
