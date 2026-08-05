@@ -273,6 +273,156 @@
     .form-select { cursor: pointer; }
     .form-select option { background: var(--bg2); }
 
+    /* ── CUSTOM PICKER BUTTON ── */
+    .picker-btn {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      padding: 10px 13px;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      transition: border-color 0.2s;
+      -webkit-tap-highlight-color: transparent;
+      min-width: 0;
+    }
+    .picker-btn:focus { outline: none; border-color: rgba(125,181,160,0.5); }
+    .picker-btn.has-value { color: var(--text); }
+    .picker-btn.placeholder { color: var(--text-dim); }
+    .picker-btn-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .picker-btn-arrow { flex-shrink: 0; color: var(--text-dim); font-size: 10px; }
+
+    /* ── BOTTOM SHEET ── */
+    .sheet-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 800;
+      backdrop-filter: blur(2px);
+    }
+    .sheet-backdrop.open { display: block; }
+    .bottom-sheet {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%) translateY(100%);
+      width: 100%;
+      max-width: 480px;
+      background: var(--bg2);
+      border-radius: 20px 20px 0 0;
+      z-index: 801;
+      transition: transform 0.3s cubic-bezier(.32,0,.67,0);
+      max-height: 72dvh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+    .bottom-sheet.open { transform: translateX(-50%) translateY(0); transition: transform 0.3s cubic-bezier(.34,1.4,.64,1); }
+    .sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sheet-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-mid);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .sheet-close {
+      background: var(--bg3);
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      color: var(--text-dim);
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .sheet-options {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      flex: 1;
+      padding: 8px 0;
+    }
+    .sheet-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 20px;
+      font-size: 15px;
+      color: var(--text);
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.1s;
+      font-family: 'Inter', sans-serif;
+    }
+    .sheet-option:active { background: var(--bg3); }
+    .sheet-option.selected { color: var(--sage); }
+    .sheet-option.selected::after { content: '✓'; font-size: 13px; }
+    .sheet-option.add-new {
+      color: var(--sage);
+      font-weight: 500;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+      padding-top: 16px;
+    }
+    .sheet-add-new-input {
+      display: none;
+      padding: 12px 20px 4px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sheet-add-new-input.open { display: block; }
+    .sheet-add-new-row {
+      display: flex;
+      gap: 8px;
+    }
+    .sheet-add-new-row input {
+      flex: 1;
+      background: var(--bg3);
+      border: 1px solid rgba(125,181,160,0.4);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      padding: 10px 13px;
+      outline: none;
+    }
+    .sheet-add-new-row input:focus { border-color: var(--sage); }
+    .sheet-add-new-row button {
+      background: var(--sage-dim);
+      border: 1px solid rgba(125,181,160,0.3);
+      border-radius: var(--radius-sm);
+      color: var(--sage);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
     .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
     .tag-input-wrap { position: relative; }
@@ -838,6 +988,22 @@
 </head>
 <body>
 
+<!-- BOTTOM SHEET (shared, single instance) -->
+<div class="sheet-backdrop" id="sheet-backdrop" onclick="closeSheet()"></div>
+<div class="bottom-sheet" id="bottom-sheet">
+  <div class="sheet-header">
+    <div class="sheet-title" id="sheet-title">Select</div>
+    <button class="sheet-close" onclick="closeSheet()">×</button>
+  </div>
+  <div class="sheet-options" id="sheet-options"></div>
+  <div class="sheet-add-new-input" id="sheet-add-new-wrap">
+    <div class="sheet-add-new-row">
+      <input id="sheet-add-new-input" placeholder="Type a name and save…" />
+      <button onclick="confirmSheetNewItem()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOCK SCREEN -->
 <div id="lock-screen" class="visible">
   <div class="lock-logo">Kadence</div>
@@ -1345,18 +1511,22 @@ function saveNewContext(habitId, activity, contextName) {
   saveState();
 }
 
-function buildLogForm(h) {
-  const activities = getActivities(h.id);
-  const firstActivity = activities[0];
-  const contexts = getContexts(h.id, firstActivity);
-  const isWellbeing = h.id === 'wellbeing';
+function getLastEntry(habitId, field) {
+  // Walk log backwards to find most recent entry for this habit
+  for (let i = state.log.length - 1; i >= 0; i--) {
+    const e = state.log[i];
+    if (e.habitId === habitId && e[field]) return e[field];
+  }
+  return null;
+}
 
-  const actOptions = activities.map(a =>
-    `<option value="${a}">${a}</option>`
-  ).join('');
-  const ctxOptions = contexts.map(c =>
-    `<option value="${c}">${c}</option>`
-  ).join('');
+function buildLogForm(h) {
+  const isWellbeing = h.id === 'wellbeing';
+  const lastActivity = getLastEntry(h.id, 'activity');
+  const lastContext  = getLastEntry(h.id, 'context');
+
+  const actPlaceholder = lastActivity ? `Last: ${lastActivity}` : 'Select Activity';
+  const ctxPlaceholder = lastContext  ? `Last: ${lastContext}`  : 'Select Context';
 
   return `
     <div class="form-row">
@@ -1366,33 +1536,21 @@ function buildLogForm(h) {
     <div class="form-row-2">
       <div class="form-row" style="margin-bottom:0">
         <label class="form-label">Activity</label>
-        <select class="form-select" id="activity-${h.id}" onchange="onActivityChange('${h.id}')">
-          ${actOptions}
-        </select>
+        <button class="picker-btn placeholder" id="activity-btn-${h.id}"
+          onclick="openSheet('activity','${h.id}')"
+          data-value="" data-placeholder="${actPlaceholder}">
+          <span class="picker-btn-text">${actPlaceholder}</span>
+          <span class="picker-btn-arrow">▼</span>
+        </button>
       </div>
       <div class="form-row" style="margin-bottom:0">
         <label class="form-label">Context</label>
-        <select class="form-select" id="context-${h.id}" onchange="onContextChange('${h.id}')">
-          ${ctxOptions}
-        </select>
-      </div>
-    </div>
-
-    <!-- New activity input -->
-    <div id="new-activity-row-${h.id}" style="display:none;margin-top:8px">
-      <label class="form-label">New activity name</label>
-      <div class="new-item-row">
-        <input class="new-item-input" id="new-activity-${h.id}" placeholder="e.g. Podcast Listening" />
-        <button class="new-item-save" onclick="confirmNewActivity('${h.id}')">Save</button>
-      </div>
-    </div>
-
-    <!-- New context input -->
-    <div id="new-context-row-${h.id}" style="display:none;margin-top:8px">
-      <label class="form-label">New context name</label>
-      <div class="new-item-row">
-        <input class="new-item-input" id="new-context-${h.id}" placeholder="e.g. Apple Podcasts" />
-        <button class="new-item-save" onclick="confirmNewContext('${h.id}')">Save</button>
+        <button class="picker-btn placeholder" id="context-btn-${h.id}"
+          onclick="openSheet('context','${h.id}')"
+          data-value="" data-placeholder="${ctxPlaceholder}">
+          <span class="picker-btn-text">${ctxPlaceholder}</span>
+          <span class="picker-btn-arrow">▼</span>
+        </button>
       </div>
     </div>
 
@@ -1432,73 +1590,160 @@ function buildLogForm(h) {
   `;
 }
 
-function onActivityChange(habitId) {
-  const actEl = document.getElementById(`activity-${habitId}`);
-  const val = actEl.value;
-  const isAddNew = val === '+ Add new activity';
+// ── BOTTOM SHEET PICKER ───────────────────────────────────────────────────────
+// Single shared sheet. State tracks what it's currently picking.
 
-  document.getElementById(`new-activity-row-${habitId}`).style.display = isAddNew ? 'block' : 'none';
-  if (isAddNew) document.getElementById(`new-activity-${habitId}`).focus();
+let sheetState = { type: null, habitId: null }; // type: 'activity' | 'context'
 
-  refreshContextDropdown(habitId, isAddNew ? null : val);
-  checkExclusion(habitId);
+function openSheet(type, habitId) {
+  sheetState = { type, habitId };
+
+  const sheet    = document.getElementById('bottom-sheet');
+  const backdrop = document.getElementById('sheet-backdrop');
+  const titleEl  = document.getElementById('sheet-title');
+  const optionsEl= document.getElementById('sheet-options');
+  const addWrap  = document.getElementById('sheet-add-new-wrap');
+  const addInput = document.getElementById('sheet-add-new-input');
+
+  addWrap.classList.remove('open');
+  addInput.value = '';
+
+  const actBtn = document.getElementById(`activity-btn-${habitId}`);
+  const currentActivity = actBtn ? actBtn.dataset.value : '';
+
+  let options, currentVal, title;
+
+  if (type === 'activity') {
+    title = 'Select Activity';
+    options = getActivities(habitId);
+    currentVal = currentActivity;
+  } else {
+    title = 'Select Context';
+    // only show contexts for the currently selected activity
+    options = currentActivity ? getContexts(habitId, currentActivity) : ['Select an activity first'];
+    const ctxBtn = document.getElementById(`context-btn-${habitId}`);
+    currentVal = ctxBtn ? ctxBtn.dataset.value : '';
+  }
+
+  titleEl.textContent = title;
+
+  // Build option rows — "add new" always at bottom
+  const realOptions = options.filter(o => o !== '+ Add new context' && o !== '+ Add new activity');
+  const canAddNew = type === 'activity'
+    ? true
+    : (currentActivity && currentActivity !== '+ Add new activity');
+
+  optionsEl.innerHTML = realOptions.map(o => `
+    <button class="sheet-option ${o === currentVal ? 'selected' : ''}"
+      onclick="selectSheetOption('${o.replace(/'/g,"\\'")}')">
+      ${o}
+    </button>
+  `).join('') + (canAddNew ? `
+    <button class="sheet-option add-new" onclick="showSheetAddNew()">
+      + Add new ${type}
+    </button>
+  ` : '');
+
+  backdrop.classList.add('open');
+  sheet.classList.add('open');
 }
 
-function onContextChange(habitId) {
-  const ctxEl = document.getElementById(`context-${habitId}`);
-  const isAddNew = ctxEl.value === '+ Add new context';
-  document.getElementById(`new-context-row-${habitId}`).style.display = isAddNew ? 'block' : 'none';
-  if (isAddNew) document.getElementById(`new-context-${habitId}`).focus();
+function selectSheetOption(value) {
+  const { type, habitId } = sheetState;
+
+  if (type === 'activity') {
+    const btn = document.getElementById(`activity-btn-${habitId}`);
+    setPickerValue(btn, value);
+    // reset context picker since activity changed
+    const ctxBtn = document.getElementById(`context-btn-${habitId}`);
+    const lastCtx = getLastEntry(habitId, 'context');
+    resetPickerToPlaceholder(ctxBtn, lastCtx ? `Last: ${lastCtx}` : 'Select Context');
+    // check exclusion + tarot
+    checkExclusion(habitId, value);
+  } else {
+    const btn = document.getElementById(`context-btn-${habitId}`);
+    setPickerValue(btn, value);
+  }
+
+  closeSheet();
 }
 
-function refreshContextDropdown(habitId, activity) {
-  const ctxEl = document.getElementById(`context-${habitId}`);
-  if (!ctxEl) return;
-  const contexts = getContexts(habitId, activity);
-  ctxEl.innerHTML = contexts.map(c => `<option value="${c}">${c}</option>`).join('');
-  const newCtxRow = document.getElementById(`new-context-row-${habitId}`);
-  if (newCtxRow) newCtxRow.style.display = 'none';
+function setPickerValue(btn, value) {
+  if (!btn) return;
+  btn.dataset.value = value;
+  btn.classList.remove('placeholder');
+  btn.classList.add('has-value');
+  btn.querySelector('.picker-btn-text').textContent = value;
 }
 
-function confirmNewActivity(habitId) {
-  const input = document.getElementById(`new-activity-${habitId}`);
-  const name = input.value.trim();
+function resetPickerToPlaceholder(btn, placeholder) {
+  if (!btn) return;
+  btn.dataset.value = '';
+  btn.classList.add('placeholder');
+  btn.classList.remove('has-value');
+  btn.querySelector('.picker-btn-text').textContent = placeholder;
+}
+
+function showSheetAddNew() {
+  const wrap  = document.getElementById('sheet-add-new-wrap');
+  const input = document.getElementById('sheet-add-new-input');
+  wrap.classList.add('open');
+  input.placeholder = sheetState.type === 'activity' ? 'New activity name…' : 'New context name…';
+  setTimeout(() => input.focus(), 50);
+}
+
+function confirmSheetNewItem() {
+  const { type, habitId } = sheetState;
+  const input = document.getElementById('sheet-add-new-input');
+  const name  = input.value.trim();
   if (!name) { input.focus(); return; }
 
-  const lib = getLibrary(habitId);
-  if (!lib[name]) lib[name] = [];
-  if (!state.library) state.library = {};
-  state.library[habitId] = lib;
-  saveState();
+  if (type === 'activity') {
+    const lib = getLibrary(habitId);
+    if (!lib[name]) lib[name] = [];
+    if (!state.library) state.library = {};
+    state.library[habitId] = lib;
+    saveState();
+    const btn = document.getElementById(`activity-btn-${habitId}`);
+    setPickerValue(btn, name);
+    // reset context
+    const ctxBtn = document.getElementById(`context-btn-${habitId}`);
+    resetPickerToPlaceholder(ctxBtn, 'Select Context');
+    checkExclusion(habitId, name);
+  } else {
+    const actBtn  = document.getElementById(`activity-btn-${habitId}`);
+    const activity = actBtn ? actBtn.dataset.value : '';
+    if (!activity) return;
+    saveNewContext(habitId, activity, name);
+    const btn = document.getElementById(`context-btn-${habitId}`);
+    setPickerValue(btn, name);
+  }
 
-  const actEl = document.getElementById(`activity-${habitId}`);
-  actEl.innerHTML = getActivities(habitId).map(a =>
-    `<option value="${a}" ${a === name ? 'selected' : ''}>${a}</option>`
-  ).join('');
-
-  document.getElementById(`new-activity-row-${habitId}`).style.display = 'none';
-  input.value = '';
-  refreshContextDropdown(habitId, name);
-  showToast(`Activity "${name}" saved ✓`);
+  closeSheet();
+  showToast(`"${name}" saved ✓`);
 }
 
-function confirmNewContext(habitId) {
-  const actEl = document.getElementById(`activity-${habitId}`);
-  const activity = actEl.value;
-  const input = document.getElementById(`new-context-${habitId}`);
-  const name = input.value.trim();
-  if (!name || activity === '+ Add new activity') { input.focus(); return; }
+function closeSheet() {
+  document.getElementById('bottom-sheet').classList.remove('open');
+  document.getElementById('sheet-backdrop').classList.remove('open');
+  document.getElementById('sheet-add-new-wrap').classList.remove('open');
+  document.getElementById('sheet-add-new-input').value = '';
+}
 
-  saveNewContext(habitId, activity, name);
+// Enter key in sheet add-new input
+document.getElementById('sheet-add-new-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmSheetNewItem();
+});
 
-  const ctxEl = document.getElementById(`context-${habitId}`);
-  ctxEl.innerHTML = getContexts(habitId, activity).map(c =>
-    `<option value="${c}" ${c === name ? 'selected' : ''}>${c}</option>`
-  ).join('');
-
-  document.getElementById(`new-context-row-${habitId}`).style.display = 'none';
-  input.value = '';
-  showToast(`Context "${name}" saved ✓`);
+function checkExclusion(habitId, activityValue) {
+  const h = HABITS.find(h => h.id === habitId);
+  const noteEl = document.getElementById(`exclude-note-${habitId}`);
+  if (!h || !noteEl) return;
+  const val = activityValue || document.getElementById(`activity-btn-${habitId}`)?.dataset.value || '';
+  const excluded = h.excludedActivities.includes(val);
+  noteEl.style.display = excluded ? 'block' : 'none';
+  const tarotFields = document.getElementById(`tarot-fields-${habitId}`);
+  if (tarotFields) tarotFields.style.display = val === 'Tarot Reading' ? 'block' : 'none';
 }
 
 function buildTodaysEntries(entries, h) {
@@ -1650,20 +1895,6 @@ function toggleCard(habitId) {
   }
 }
 
-function checkExclusion(habitId) {
-  const h = HABITS.find(h => h.id === habitId);
-  const actEl = document.getElementById(`activity-${habitId}`);
-  const noteEl = document.getElementById(`exclude-note-${habitId}`);
-  if (!h || !actEl || !noteEl) return;
-  const excluded = h.excludedActivities.includes(actEl.value);
-  noteEl.style.display = excluded ? 'block' : 'none';
-  // show tarot fields if tarot selected in wellbeing
-  const tarotFields = document.getElementById(`tarot-fields-${habitId}`);
-  if (tarotFields) {
-    tarotFields.style.display = actEl.value === 'Tarot Reading' ? 'block' : 'none';
-  }
-}
-
 // tag management
 const tagMap = {};
 function handleTagInput(e, habitId) {
@@ -1697,19 +1928,20 @@ function removeTag(habitId, idx) {
 
 function logEntry(habitId) {
   const h = HABITS.find(h => h.id === habitId);
-  const entryEl = document.getElementById(`entry-${habitId}`);
-  const actEl   = document.getElementById(`activity-${habitId}`);
-  const ctxEl   = document.getElementById(`context-${habitId}`);
-  const notesEl = document.getElementById(`notes-${habitId}`);
+  const entryEl  = document.getElementById(`entry-${habitId}`);
+  const actBtn   = document.getElementById(`activity-btn-${habitId}`);
+  const ctxBtn   = document.getElementById(`context-btn-${habitId}`);
+  const notesEl  = document.getElementById(`notes-${habitId}`);
 
   const entry    = entryEl ? entryEl.value.trim() : '';
-  const activity = actEl ? actEl.value : '';
-  const context  = ctxEl ? ctxEl.value : '';
+  const activity = actBtn ? actBtn.dataset.value : '';
+  const context  = ctxBtn ? ctxBtn.dataset.value : '';
   const notes    = notesEl ? notesEl.value.trim() : '';
   const tags     = tagMap[habitId] || [];
   const excluded = h.excludedActivities.includes(activity);
 
-  if (!entry) { showToast('Add a quick description first.'); return; }
+  if (!entry)    { showToast('Add a quick description first.'); return; }
+  if (!activity) { showToast('Pick an activity first.'); return; }
 
   const id = Date.now().toString();
   const today = todayStr();
@@ -1724,31 +1956,31 @@ function logEntry(habitId) {
     const deck    = deckEl ? deckEl.value.trim() : '';
     const spread  = spreadEl ? spreadEl.value.trim() : '';
     const cards   = cardsEl ? cardsEl.value.split('\n').map(s=>s.trim()).filter(Boolean) : [];
-    const tarotTags = [...tags].filter(t => t !== '#NoStreak');
-    // find interpretation context
-    const interpretation = ctxEl ? ctxEl.value : '';
-
     state.detailLog.push({
       id: id + '-detail',
       date: today,
       title: entry,
       deck, spread,
-      interpretation,
+      interpretation: context,
       cards,
-      tags: tarotTags,
+      tags: [...tags],
       notes
     });
   }
 
-  // reset form
+  // reset form — pickers go back to "Last: X" placeholder
   if (entryEl) entryEl.value = '';
   if (notesEl) notesEl.value = '';
   tagMap[habitId] = [];
+  // reset pickers to show the newly-logged values as last entry
+  const newLastCtx = context || '';
+  resetPickerToPlaceholder(actBtn, `Last: ${activity}`);
+  resetPickerToPlaceholder(ctxBtn, newLastCtx ? `Last: ${newLastCtx}` : 'Select Context');
 
   render();
 
   const msg = excluded
-    ? `Logged (awareness only, not counted toward streak)`
+    ? 'Logged (awareness only, not counted toward streak)'
     : `Logged ✓ — vote cast for ${h.name}.`;
   showToast(msg);
 }
