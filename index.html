@@ -1257,7 +1257,13 @@
 
     <div class="settings-section-label" style="margin-top:20px">Data</div>
     <div class="settings-section">
-      <div class="settings-row">
+      <div class="settings-row" id="migrate-row">
+        <div>
+          <div>Migrate local data</div>
+          <div class="settings-row-label">Push entries from this browser to your account</div>
+        </div>
+        <button onclick="migrateLocalData()" id="migrate-btn" style="background:var(--purple-dim);border:1px solid rgba(139,119,184,0.3);color:var(--purple);padding:7px 14px;border-radius:var(--radius-sm);font-family:'Inter',sans-serif;font-size:12px;cursor:pointer;">Migrate</button>
+      </div>
         <div>
           <div>Export log</div>
           <div class="settings-row-label">Download all entries as JSON</div>
@@ -2192,6 +2198,83 @@ function importData(e) {
   reader.readAsText(file);
 }
 
+// ─── LOCAL DATA MIGRATION ─────────────────────────────────────────────────────
+// Reads old localStorage data (pre-Supabase) and pushes it to the server.
+// Safe to run multiple times — upsert won't duplicate.
+
+async function migrateLocalData() {
+  if (!currentUser) { showToast('Sign in first.'); return; }
+  if (!navigator.onLine) { showToast('Need internet to migrate.'); return; }
+
+  const btn = document.getElementById('migrate-btn');
+  if (btn) { btn.textContent = 'Migrating…'; btn.disabled = true; }
+
+  try {
+    // Try both old key names
+    const raw = localStorage.getItem('kadence-habits-v2') || localStorage.getItem('kai-habits-v2');
+    if (!raw) { showToast('No local data found to migrate.'); return; }
+
+    const old = JSON.parse(raw);
+    const log       = old.log       || [];
+    const detailLog = old.detailLog || [];
+    const library   = old.library   || {};
+
+    let count = 0;
+
+    for (const e of log) {
+      await sbUpsert('habit_log', {
+        id:       e.id,
+        user_id:  currentUser.id,
+        date:     e.date,
+        habit_id: e.habitId,
+        entry:    e.entry,
+        activity: e.activity || '',
+        context:  e.context  || '',
+        tags:     e.tags     || [],
+        notes:    e.notes    || '',
+        excluded: e.excluded || false
+      }, currentUser.access_token);
+      count++;
+    }
+
+    for (const d of detailLog) {
+      await sbUpsert('detail_log', {
+        id:             d.id,
+        user_id:        currentUser.id,
+        date:           d.date,
+        title:          d.title,
+        deck:           d.deck           || '',
+        spread:         d.spread         || '',
+        interpretation: d.interpretation || '',
+        cards:          d.cards          || [],
+        tags:           d.tags           || [],
+        notes:          d.notes          || ''
+      }, currentUser.access_token);
+    }
+
+    if (Object.keys(library).length) {
+      await sbUpsert('habit_library', {
+        user_id:    currentUser.id,
+        library:    library,
+        updated_at: new Date().toISOString()
+      }, currentUser.access_token);
+    }
+
+    // Pull the migrated data back into state and re-render
+    await syncFromSupabase();
+    showToast(`Migrated ${count} entr${count === 1 ? 'y' : 'ies'} ✓`);
+
+    // Hide the migrate row once done — no need for it anymore
+    const row = document.getElementById('migrate-row');
+    if (row) row.style.display = 'none';
+
+  } catch(e) {
+    showToast('Migration failed — ' + e.message);
+  } finally {
+    if (btn) { btn.textContent = 'Migrate'; btn.disabled = false; }
+  }
+}
+
 async function confirmReset() {
   if (!confirm('Clear ALL data and reset? This cannot be undone.')) return;
   if (currentUser && navigator.onLine) {
@@ -2371,8 +2454,8 @@ function wmoCondition(code) {
 // │  REPLACE THESE TWO VALUES WITH YOUR OWN FROM supabase.com              │
 // │  Settings → API → Project URL and anon/public key                      │
 // └─────────────────────────────────────────────────────────────────────────┘
-const SUPABASE_URL  = 'https://wjmpbvfpxfroruuwsjve.supabase.co';   // e.g. https://xxxx.supabase.co
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqbXBidmZweGZyb3J1dXdzanZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5NjQwNjIsImV4cCI6MjEwMTU0MDA2Mn0.9_rCRtxjpaPnpb7AWSkJ0q9nNx94cgeDVUdxAXUT5_Q';      // eyJ... string
+const SUPABASE_URL  = 'https://wjmpbvfpxfroruuwsjve.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqbXBidmZweGZyb3J1dXdzanZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5NjQwNjIsImV4cCI6MjEwMTU0MDA2Mn0.9_rCRtxjpaPnpb7AWSkJ0q9nNx94cgeDVUdxAXUT5_Q';
 
 // Supabase REST helpers — no SDK needed, plain fetch
 const sbHeaders = (token) => ({
@@ -2783,11 +2866,49 @@ function showLockError(inputId, errEl, msg) {
 
 async function unlock() {
   document.getElementById('lock-screen').classList.remove('visible');
-  loadLocalCache();   // show cached data instantly
+  loadLocalCache();
   render();
-  await syncFromSupabase();    // then pull fresh from server
+  await seedDataIfNeeded();    // one-time migration of hardcoded entries
+  await syncFromSupabase();
   await syncProfileFromSupabase();
-  await flushOfflineQueue();   // replay any queued writes
+  await flushOfflineQueue();
+}
+
+// ─── ONE-TIME SEED ────────────────────────────────────────────────────────────
+// Pushes your saved entries to Supabase exactly once, then marks itself done.
+
+async function seedDataIfNeeded() {
+  const seedKey = `kadence-seeded-${currentUser.id}`;
+  if (localStorage.getItem(seedKey)) return; // already ran
+  if (!navigator.onLine) return;
+
+  // Check if user already has data — if so, skip
+  try {
+    const existing = await sbSelect('habit_log', `user_id=eq.${currentUser.id}&limit=1`, currentUser.access_token);
+    if (existing.length > 0) { localStorage.setItem(seedKey, '1'); return; }
+  } catch { return; }
+
+  const SEED_LOG = [{"id":"1785964018195","date":"2026-08-05","habitId":"wellbeing","entry":"Smoke Session","activity":"Marijuana","context":"Solo","tags":[],"notes":"4-Hits","excluded":true},{"id":"1785964885816","date":"2026-08-05","habitId":"admin","entry":"Worked on Habit / Productivity App","activity":"Filing/Organizing","context":"Other","tags":[],"notes":"Kadence Habit Tracker","excluded":false},{"id":"1785966600667","date":"2026-08-05","habitId":"knowledge","entry":"Practiced Japanese on WaniKani","activity":"Vocab Review","context":"WaniKani","tags":[],"notes":"","excluded":false},{"id":"1785969032154","date":"2026-08-05","habitId":"admin","entry":"Washed & Put Away Dishes","activity":"House Chores","context":"Kitchen","tags":[],"notes":"","excluded":false}];
+
+  const SEED_LIBRARY = {"knowledge":{"Reading":["Physical Book","Duolingo","WaniKani","Physical Workbook","Audiobook"],"Hiragana Practice":["Physical Book","Duolingo","WaniKani","Physical Workbook","Audiobook"],"Grammar Practice":["Physical Book","Duolingo","WaniKani","Physical Workbook","Audiobook"],"Vocab Review":["Physical Book","Duolingo","WaniKani","Physical Workbook","Audiobook"],"Kanji Review":["Physical Book","Duolingo","WaniKani","Physical Workbook","Audiobook"],"Workbook Practice":["Physical Book","Duolingo","WaniKani","Physical Workbook","Audiobook"],"Language Lesson":["Physical Book","Duolingo","WaniKani","Physical Workbook","Audiobook"]},"admin":{"House Chores":["Kitchen","Bathroom","Bedroom","Living Room","Office","Dr. Office"],"Groceries":["Kitchen","Bathroom","Bedroom","Living Room","Office","Dr. Office"],"Health Appointment":["Kitchen","Bathroom","Bedroom","Living Room","Office","Dr. Office"],"Errands":["Kitchen","Bathroom","Bedroom","Living Room","Office","Dr. Office"],"Filing/Organizing":["Kitchen","Bathroom","Bedroom","Living Room","Office","Dr. Office"]},"creativity":{"Music Discovery & Playlist Building":["Spotify","Rekordbox","SoundCloud","Bandcamp","Ableton"],"DJing Practice":["Spotify","Rekordbox","SoundCloud","Bandcamp","Ableton"],"Beat Making":["Spotify","Rekordbox","SoundCloud","Bandcamp","Ableton"],"Music Theory":["Spotify","Rekordbox","SoundCloud","Bandcamp","Ableton"]},"wellbeing":{"Tarot Reading":["Self","AI-Assisted","YouTube","App","Unguided","Social","Solo"],"Astrology Study":["Self","AI-Assisted","YouTube","App","Unguided","Social","Solo"],"Meditation":["Self","AI-Assisted","YouTube","App","Unguided","Social","Solo"],"Journaling":["Self","AI-Assisted","YouTube","App","Unguided","Social","Solo"],"Alcohol":["Self","AI-Assisted","YouTube","App","Unguided","Social","Solo"],"Marijuana":["Self","AI-Assisted","YouTube","App","Unguided","Social","Solo"]}};
+
+  try {
+    for (const e of SEED_LOG) {
+      await sbUpsert('habit_log', {
+        id: e.id, user_id: currentUser.id, date: e.date,
+        habit_id: e.habitId, entry: e.entry, activity: e.activity,
+        context: e.context, tags: e.tags, notes: e.notes, excluded: e.excluded
+      }, currentUser.access_token);
+    }
+    await sbUpsert('habit_library', {
+      user_id: currentUser.id, library: SEED_LIBRARY,
+      updated_at: new Date().toISOString()
+    }, currentUser.access_token);
+
+    localStorage.setItem(seedKey, '1');
+  } catch(e) {
+    console.warn('Seed failed:', e.message);
+  }
 }
 
 async function checkAuth() {
