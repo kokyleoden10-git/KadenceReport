@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Kai — Daily Practice</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0F1117;
+      --bg2:       #171B24;
+      --bg3:       #1E2330;
+      --border:    rgba(240,237,230,0.08);
+      --text:      #F0EDE6;
+      --text-dim:  rgba(240,237,230,0.45);
+      --text-mid:  rgba(240,237,230,0.70);
+      --sage:      #7DB5A0;
+      --sage-dim:  rgba(125,181,160,0.15);
+      --amber:     #C8964E;
+      --amber-dim: rgba(200,150,78,0.15);
+      --purple:    #8B77B8;
+      --purple-dim:rgba(139,119,184,0.15);
+      --pink:      #C47BA0;
+      --pink-dim:  rgba(196,123,160,0.15);
+      --radius:    14px;
+      --radius-sm: 8px;
+    }
+
+    html { background: var(--bg); }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 0 0 120px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      padding: 52px 24px 24px;
+      position: relative;
+    }
+    .header-eyebrow {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+    .header-date {
+      font-family: 'DM Serif Display', serif;
+      font-size: 28px;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .header-sub {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    /* ── SECTION LABELS ── */
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding: 0 24px;
+      margin-bottom: 12px;
+    }
+
+    /* ── DAILY GOAL BANNER ── */
+    .goal-banner {
+      margin: 0 16px 28px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .goal-rings {
+      display: flex;
+      gap: -4px;
+      flex-shrink: 0;
+    }
+    .goal-ring-wrap {
+      width: 52px;
+      height: 52px;
+      position: relative;
+    }
+    .goal-ring-wrap svg {
+      transform: rotate(-90deg);
+    }
+    .goal-ring-track { fill: none; stroke: var(--border); stroke-width: 4; }
+    .goal-ring-fill  { fill: none; stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 0.8s cubic-bezier(.4,0,.2,1); }
+    .goal-text-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .goal-info { flex: 1; }
+    .goal-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+    .goal-subtitle {
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+    .goal-complete .goal-title { color: var(--sage); }
+
+    /* ── HABIT CARDS ── */
+    .habits-grid {
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+
+    .habit-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .habit-card.logged { border-color: rgba(125,181,160,0.25); }
+
+    .habit-card-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 18px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .habit-icon-wrap {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    /* streak arc on icon */
+    .habit-icon-wrap svg.streak-arc {
+      position: absolute;
+      inset: -3px;
+      width: calc(100% + 6px);
+      height: calc(100% + 6px);
+      transform: rotate(-90deg);
+      pointer-events: none;
+    }
+
+    .habit-card-info { flex: 1; min-width: 0; }
+    .habit-card-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .habit-card-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .habit-card-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .streak-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--amber);
+      background: var(--amber-dim);
+      padding: 4px 9px;
+      border-radius: 20px;
+    }
+    .streak-badge.zero { color: var(--text-dim); background: transparent; font-weight: 400; }
+    .expand-icon {
+      color: var(--text-dim);
+      font-size: 12px;
+      transition: transform 0.2s;
+    }
+    .habit-card.open .expand-icon { transform: rotate(180deg); }
+
+    /* log form inside card */
+    .habit-log-panel {
+      display: none;
+      padding: 0 18px 18px;
+      border-top: 1px solid var(--border);
+      animation: slideDown 0.18s ease;
+    }
+    .habit-card.open .habit-log-panel { display: block; }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .log-identity {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-style: italic;
+      padding: 14px 0 12px;
+      line-height: 1.5;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+
+    .form-row { margin-bottom: 10px; }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      padding: 10px 13px;
+      outline: none;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: rgba(125,181,160,0.5);
+    }
+    .form-textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+    .form-select { cursor: pointer; }
+    .form-select option { background: var(--bg2); }
+
+    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .tag-input-wrap { position: relative; }
+    .tag-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .tag-pill {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--text-mid);
+      padding: 4px 10px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .tag-pill button {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+      padding: 0;
+    }
+    .tag-input {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      padding: 9px 13px;
+      outline: none;
+    }
+    .tag-input:focus { border-color: rgba(125,181,160,0.5); }
+    .tag-input::placeholder { color: var(--text-dim); }
+
+    .log-btn {
+      width: 100%;
+      margin-top: 14px;
+      padding: 13px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .log-btn:active { transform: scale(0.98); opacity: 0.85; }
+
+    .exclude-note {
+      font-size: 11px;
+      color: var(--amber);
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: var(--amber-dim);
+      border-radius: var(--radius-sm);
+      line-height: 1.4;
+    }
+
+    /* today's logged entries */
+    .todays-entries {
+      margin-top: 14px;
+    }
+    .todays-entries-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .entry-chip {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-mid);
+      line-height: 1.4;
+    }
+    .entry-chip:last-child { border-bottom: none; }
+    .entry-chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--sage);
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .entry-chip-dot.excluded { background: var(--amber); }
+
+    /* ── STREAKS SECTION ── */
+    .streaks-wrap {
+      padding: 0 16px;
+      margin-bottom: 32px;
+    }
+    .streaks-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .streak-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .streak-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .streak-card-icon { font-size: 18px; }
+    .streak-number {
+      font-family: 'DM Serif Display', serif;
+      font-size: 28px;
+      color: var(--text);
+      line-height: 1;
+    }
+    .streak-number span {
+      font-size: 12px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      color: var(--text-dim);
+    }
+    .streak-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-mid);
+      margin-bottom: 6px;
+    }
+    .streak-bar-track {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .streak-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.8s cubic-bezier(.4,0,.2,1);
+    }
+    .streak-message {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    /* ── LOG HISTORY ── */
+    .log-section { padding: 0 16px; margin-bottom: 32px; }
+    .log-toggle-btn {
+      width: 100%;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-mid);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      padding: 13px 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .log-history {
+      display: none;
+      margin-top: 10px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .log-history.open { display: block; }
+
+    .log-day-group { border-bottom: 1px solid var(--border); }
+    .log-day-group:last-child { border-bottom: none; }
+    .log-day-header {
+      padding: 12px 18px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      background: var(--bg3);
+    }
+    .log-entry-row {
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .log-entry-row:last-child { border-bottom: none; }
+    .log-entry-type-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .log-entry-body { flex: 1; min-width: 0; }
+    .log-entry-name { font-size: 13px; color: var(--text); line-height: 1.4; }
+    .log-entry-meta {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+    .log-entry-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+    .log-tag {
+      font-size: 10px;
+      color: var(--text-dim);
+      background: var(--bg3);
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+
+    /* ── WELLBEING DETAIL LOG ── */
+    .detail-section { padding: 0 16px; margin-bottom: 32px; }
+    .detail-cards { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .detail-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+    }
+    .detail-card-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .detail-card-meta {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    .tarot-cards-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .tarot-card-chip {
+      font-size: 11px;
+      color: var(--purple);
+      background: var(--purple-dim);
+      padding: 3px 9px;
+      border-radius: 10px;
+    }
+
+    /* ── NAV ── */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-width: 480px;
+      margin: 0 auto;
+      background: rgba(15,17,23,0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+    }
+    .nav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 6px 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-dim);
+      font-family: 'Inter', sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      -webkit-tap-highlight-color: transparent;
+      transition: color 0.15s;
+    }
+    .nav-btn.active { color: var(--sage); }
+    .nav-btn svg { width: 20px; height: 20px; }
+
+    /* ── VIEWS ── */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-80px);
+      background: var(--bg3);
+      border: 1px solid var(--sage);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 12px 20px;
+      border-radius: 40px;
+      white-space: nowrap;
+      transition: transform 0.35s cubic-bezier(.34,1.56,.64,1);
+      z-index: 999;
+      pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── MOTIVATION CARD ── */
+    .motivation-card {
+      margin: 0 16px 24px;
+      background: linear-gradient(135deg, var(--sage-dim), var(--purple-dim));
+      border: 1px solid rgba(125,181,160,0.2);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+    .motivation-quote {
+      font-family: 'DM Serif Display', serif;
+      font-style: italic;
+      font-size: 15px;
+      color: var(--text);
+      line-height: 1.5;
+      margin-bottom: 6px;
+    }
+    .motivation-attr {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    /* ── SETTINGS VIEW ── */
+    .settings-view { padding: 0 16px; }
+    .settings-section {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      color: var(--text);
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-row-label { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+    .settings-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .toggle {
+      width: 42px;
+      height: 24px;
+      background: var(--bg3);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle.on { background: var(--sage); border-color: var(--sage); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      background: white;
+      border-radius: 50%;
+      transition: left 0.2s;
+    }
+    .toggle.on::after { left: 21px; }
+    .danger-btn {
+      width: 100%;
+      padding: 13px;
+      background: rgba(180,60,60,0.12);
+      border: 1px solid rgba(180,60,60,0.25);
+      border-radius: var(--radius);
+      color: #E07070;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ── TODAY VIEW ── -->
+<div class="view active" id="view-today">
+  <div class="header">
+    <div class="header-eyebrow">Daily Practice</div>
+    <div class="header-date" id="header-date">Tuesday, August 5</div>
+    <div class="header-sub" id="header-sub">Every entry is a vote for who you're becoming.</div>
+  </div>
+
+  <!-- MOTIVATION -->
+  <div class="motivation-card" id="motivation-card">
+    <div class="motivation-quote" id="motivation-quote"></div>
+    <div class="motivation-attr" id="motivation-attr"></div>
+  </div>
+
+  <!-- DAILY GOAL -->
+  <div class="section-label">Today's Goal</div>
+  <div class="goal-banner" id="goal-banner">
+    <div class="goal-ring-wrap">
+      <svg viewBox="0 0 52 52" width="52" height="52">
+        <circle class="goal-ring-track" cx="26" cy="26" r="22"/>
+        <circle class="goal-ring-fill" id="goal-ring" cx="26" cy="26" r="22"
+          stroke="#7DB5A0"
+          stroke-dasharray="138.2"
+          stroke-dashoffset="138.2"/>
+      </svg>
+      <div class="goal-text-overlay" id="goal-count">0</div>
+    </div>
+    <div class="goal-info">
+      <div class="goal-title" id="goal-title">Log any 2 habits today</div>
+      <div class="goal-subtitle" id="goal-subtitle">Any combination counts — pick what makes sense right now.</div>
+    </div>
+  </div>
+
+  <!-- HABIT CARDS -->
+  <div class="section-label">Habits</div>
+  <div class="habits-grid" id="habits-grid"></div>
+</div>
+
+<!-- ── LOG VIEW ── -->
+<div class="view" id="view-log">
+  <div class="header">
+    <div class="header-eyebrow">History</div>
+    <div class="header-date" style="font-size:22px">All Entries</div>
+  </div>
+  <div class="log-section" style="padding-top:0">
+    <div id="full-log-container"></div>
+  </div>
+  <div class="detail-section">
+    <div class="section-label" style="padding:0;margin-bottom:12px">Wellbeing Detail Log</div>
+    <div class="detail-cards" id="detail-log-container"></div>
+  </div>
+</div>
+
+<!-- ── STREAKS VIEW ── -->
+<div class="view" id="view-streaks">
+  <div class="header">
+    <div class="header-eyebrow">Momentum</div>
+    <div class="header-date" style="font-size:22px">Your Streaks</div>
+    <div class="header-sub">Consistency, not perfection. A missed day isn't a reset — just keep going.</div>
+  </div>
+  <div class="streaks-wrap">
+    <div class="streaks-grid" id="streaks-grid"></div>
+  </div>
+  <div style="padding:0 16px;margin-bottom:24px">
+    <div class="section-label" style="padding:0;margin-bottom:12px">Days hitting daily goal</div>
+    <div class="streak-card" style="display:flex;align-items:center;gap:16px;">
+      <div style="font-size:36px">🎯</div>
+      <div>
+        <div class="streak-number" id="goal-streak-num">0 <span>days</span></div>
+        <div class="streak-message" id="goal-streak-msg">Every day you hit 2+ types adds here.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SETTINGS VIEW ── -->
+<div class="view" id="view-settings">
+  <div class="header">
+    <div class="header-eyebrow">Preferences</div>
+    <div class="header-date" style="font-size:22px">Settings</div>
+  </div>
+  <div class="settings-view">
+    <div class="settings-section-label">Data</div>
+    <div class="settings-section">
+      <div class="settings-row">
+        <div>
+          <div>Export log</div>
+          <div class="settings-row-label">Download all entries as JSON</div>
+        </div>
+        <button onclick="exportData()" style="background:var(--sage-dim);border:1px solid rgba(125,181,160,0.3);color:var(--sage);padding:7px 14px;border-radius:var(--radius-sm);font-family:'Inter',sans-serif;font-size:12px;cursor:pointer;">Export</button>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div>Import backup</div>
+          <div class="settings-row-label">Restore from a JSON export</div>
+        </div>
+        <label style="background:var(--bg3);border:1px solid var(--border);color:var(--text-mid);padding:7px 14px;border-radius:var(--radius-sm);font-family:'Inter',sans-serif;font-size:12px;cursor:pointer;">
+          Import
+          <input type="file" accept=".json" onchange="importData(event)" style="display:none"/>
+        </label>
+      </div>
+    </div>
+    <div class="settings-section-label">Danger Zone</div>
+    <button class="danger-btn" onclick="confirmReset()">Clear all data & reset</button>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="switchView('today',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <rect x="3" y="4" width="18" height="18" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/>
+    </svg>
+    Today
+  </button>
+  <button class="nav-btn" onclick="switchView('log',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5h6"/>
+      <path d="M9 12h6M9 16h4"/>
+    </svg>
+    Log
+  </button>
+  <button class="nav-btn" onclick="switchView('streaks',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+    </svg>
+    Streaks
+  </button>
+  <button class="nav-btn" onclick="switchView('settings',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    Settings
+  </button>
+</nav>
+
+<script>
+// ─── DATA SCHEMA ─────────────────────────────────────────────────────────────
+
+const HABITS = [
+  {
+    id: 'knowledge',
+    name: 'Knowledge',
+    icon: '📚',
+    color: '#7DB5A0',
+    colorDim: 'rgba(125,181,160,0.15)',
+    desc: 'Reading, learning, language',
+    identity: '"I\'m someone who learns a little every day."',
+    twoMinute: 'Open the book and read one page. That\'s it.',
+    activities: ['Reading','Hiragana Practice','Grammar Practice','Vocab Review','Kanji Review','Workbook Practice','Language Lesson','Other'],
+    contexts: ['Physical Book','Duolingo','WaniKani','Physical Workbook','Audiobook','Other'],
+    excludedActivities: []
+  },
+  {
+    id: 'admin',
+    name: 'Admin',
+    icon: '🧹',
+    color: '#C8964E',
+    colorDim: 'rgba(200,150,78,0.15)',
+    desc: 'Daily reset, one area or task',
+    identity: '"I\'m someone who resets their space daily."',
+    twoMinute: 'One surface. One area. Timer optional.',
+    activities: ['House Chores','Groceries','Health Appointment','Errands','Filing/Organizing','Other'],
+    contexts: ['Kitchen','Bathroom','Bedroom','Living Room','Office','Dr. Office','Other'],
+    excludedActivities: []
+  },
+  {
+    id: 'creativity',
+    name: 'Creativity',
+    icon: '🎧',
+    color: '#C47BA0',
+    colorDim: 'rgba(196,123,160,0.15)',
+    desc: 'DJing, music discovery, making',
+    identity: '"I\'m someone who makes time for music."',
+    twoMinute: 'Open the app and play one track. Let it go from there.',
+    activities: ['Music Discovery & Playlist Building','DJing Practice','Beat Making','Music Theory','Other'],
+    contexts: ['Spotify','Rekordbox','SoundCloud','Bandcamp','Ableton','Other'],
+    excludedActivities: []
+  },
+  {
+    id: 'wellbeing',
+    name: 'Wellbeing',
+    icon: '🌙',
+    color: '#8B77B8',
+    colorDim: 'rgba(139,119,184,0.15)',
+    desc: 'Tarot, meditation, checking in',
+    identity: '"I\'m someone who checks in with themselves."',
+    twoMinute: 'One card. One breath. Awareness is the practice.',
+    activities: ['Tarot Reading','Astrology Study','Meditation','Journaling','Alcohol','Marijuana','Other'],
+    contexts: ['Self','AI-Assisted','YouTube','App','Unguided','Social','Solo','Other'],
+    excludedActivities: ['Marijuana']
+  }
+];
+
+const DAILY_GOAL = 2;
+
+const QUOTES = [
+  { text: "You do not rise to the level of your goals. You fall to the level of your systems.", attr: "— James Clear" },
+  { text: "Every action you take is a vote for the type of person you wish to become.", attr: "— James Clear" },
+  { text: "The two-minute rule: if it takes less than two minutes, do it now.", attr: "— Atomic Habits" },
+  { text: "Missing once is an accident. Missing twice is the start of a new habit.", attr: "— James Clear" },
+  { text: "Habits are the compound interest of self-improvement.", attr: "— James Clear" },
+  { text: "You don't have to be the victim of your environment. You can also be the architect of it.", attr: "— James Clear" },
+  { text: "The secret to getting results that last is to never stop making improvements.", attr: "— James Clear" },
+  { text: "Success is the product of daily habits — not once-in-a-lifetime transformations.", attr: "— Atomic Habits" },
+  { text: "Be patient with yourself. Growth isn't always visible.", attr: "" },
+  { text: "A bad day logged is still a day that moved forward.", attr: "" },
+];
+
+const STREAK_MESSAGES = {
+  0: "Start today — any entry counts.",
+  1: "First step taken. Keep going.",
+  2: "Two days in. The pattern is forming.",
+  3: "Three days. You're building something real.",
+  5: "Five days. This is a habit forming.",
+  7: "A full week. Identity shift happening.",
+  14: "Two weeks. This is who you are now.",
+  21: "Three weeks. Remarkable consistency.",
+  30: "One month. You've changed.",
+};
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+
+let state = {
+  log: [],        // { id, date, habitId, entry, activity, context, tags, notes, excluded }
+  detailLog: [],  // { id, date, title, deck, spread, interpretation, cards, tags }
+  streaks: { knowledge:0, admin:0, creativity:0, wellbeing:0 },
+  goalDaysHit: 0
+};
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem('kai-habits-v2');
+    if (saved) state = JSON.parse(saved);
+  } catch(e) {}
+}
+
+function saveState() {
+  localStorage.setItem('kai-habits-v2', JSON.stringify(state));
+}
+
+// ─── DATE UTILS ───────────────────────────────────────────────────────────────
+
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function formatDate(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+}
+
+function formatDateLong(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+}
+
+// ─── STREAK COMPUTATION ───────────────────────────────────────────────────────
+
+function computeStreaks() {
+  // For each habit, find consecutive days ending today (or most recent)
+  const today = todayStr();
+
+  HABITS.forEach(h => {
+    const excludedActs = h.excludedActivities || [];
+    // get all unique dates with a real (non-excluded) entry for this habit
+    const dates = [...new Set(
+      state.log
+        .filter(e => e.habitId === h.id && !e.excluded && !excludedActs.includes(e.activity))
+        .map(e => e.date)
+    )].sort().reverse();
+
+    if (!dates.length) { state.streaks[h.id] = 0; return; }
+
+    let streak = 0;
+    let cursor = new Date(today + 'T12:00:00');
+    for (const d of dates) {
+      const entryDate = new Date(d + 'T12:00:00');
+      const diff = Math.round((cursor - entryDate) / 86400000);
+      if (diff === 0 || diff === 1) {
+        streak++;
+        cursor = entryDate;
+      } else {
+        break;
+      }
+    }
+    state.streaks[h.id] = streak;
+  });
+
+  // goal days hit
+  const allDates = [...new Set(state.log.map(e => e.date))];
+  let goalDays = 0;
+  allDates.forEach(d => {
+    const typesHit = new Set(
+      state.log
+        .filter(e => e.date === d && !e.excluded)
+        .map(e => e.habitId)
+    );
+    if (typesHit.size >= DAILY_GOAL) goalDays++;
+  });
+  state.goalDaysHit = goalDays;
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+
+function render() {
+  computeStreaks();
+  saveState();
+  renderHeader();
+  renderMotivation();
+  renderGoalBanner();
+  renderHabitCards();
+  renderStreaksView();
+  renderLogView();
+  renderDetailLogView();
+}
+
+function renderHeader() {
+  const d = new Date();
+  document.getElementById('header-date').textContent =
+    d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+
+  // dynamic sub based on time of day
+  const h = d.getHours();
+  let sub = "Every entry is a vote for who you're becoming.";
+  if (h < 10) sub = "Good morning. A small step today matters.";
+  else if (h < 14) sub = "Midday check-in. How's the practice going?";
+  else if (h >= 21) sub = "End of day. Even one entry counts.";
+  document.getElementById('header-sub').textContent = sub;
+}
+
+function renderMotivation() {
+  const today = todayStr();
+  // deterministic quote per day
+  const idx = today.split('-').reduce((a,b) => a + parseInt(b), 0) % QUOTES.length;
+  const q = QUOTES[idx];
+  document.getElementById('motivation-quote').textContent = `"${q.text}"`;
+  document.getElementById('motivation-attr').textContent = q.attr;
+}
+
+function renderGoalBanner() {
+  const today = todayStr();
+  const typesLoggedToday = new Set(
+    state.log.filter(e => e.date === today && !e.excluded).map(e => e.habitId)
+  );
+  const count = typesLoggedToday.size;
+  const done = count >= DAILY_GOAL;
+
+  const circumference = 138.2;
+  const progress = Math.min(count / DAILY_GOAL, 1);
+  const offset = circumference * (1 - progress);
+
+  document.getElementById('goal-ring').style.strokeDashoffset = offset;
+  document.getElementById('goal-count').textContent = `${count}/${DAILY_GOAL}`;
+
+  const banner = document.getElementById('goal-banner');
+  if (done) {
+    banner.classList.add('goal-complete');
+    document.getElementById('goal-title').textContent = '✓ Daily goal complete';
+    document.getElementById('goal-subtitle').textContent = 'Nice. Any more entries today are a bonus.';
+    document.getElementById('goal-ring').style.stroke = '#7DB5A0';
+  } else {
+    banner.classList.remove('goal-complete');
+    const remaining = DAILY_GOAL - count;
+    document.getElementById('goal-title').textContent = `Log ${remaining} more habit${remaining > 1 ? 's' : ''} today`;
+    document.getElementById('goal-subtitle').textContent = `${count} of ${DAILY_GOAL} types logged. Any combination counts.`;
+  }
+}
+
+function renderHabitCards() {
+  const today = todayStr();
+  const container = document.getElementById('habits-grid');
+  container.innerHTML = '';
+
+  HABITS.forEach(h => {
+    const todayEntries = state.log.filter(e => e.date === today && e.habitId === h.id);
+    const countingEntries = todayEntries.filter(e => !e.excluded);
+    const isLogged = countingEntries.length > 0;
+    const streak = state.streaks[h.id] || 0;
+
+    // streak arc SVG
+    const circ = 2 * Math.PI * 22; // r=22
+    const maxStreak = 30;
+    const arcPct = Math.min(streak / maxStreak, 1);
+    const arcOffset = circ * (1 - arcPct);
+
+    const card = document.createElement('div');
+    card.className = `habit-card${isLogged ? ' logged' : ''}`;
+    card.innerHTML = `
+      <div class="habit-card-header" onclick="toggleCard('${h.id}')">
+        <div class="habit-icon-wrap" style="background:${h.colorDim}">
+          <span>${h.icon}</span>
+          <svg class="streak-arc" viewBox="0 0 52 52">
+            <circle fill="none" stroke="${h.colorDim}" stroke-width="3" cx="26" cy="26" r="22"/>
+            <circle fill="none" stroke="${h.color}" stroke-width="3" stroke-linecap="round"
+              cx="26" cy="26" r="22"
+              stroke-dasharray="${circ}"
+              stroke-dashoffset="${arcOffset}"
+              transform="rotate(-90 26 26)"
+              style="transition:stroke-dashoffset 0.8s cubic-bezier(.4,0,.2,1)"/>
+          </svg>
+        </div>
+        <div class="habit-card-info">
+          <div class="habit-card-name">${h.name}${isLogged ? ' <span style="color:var(--sage);font-size:12px">✓</span>' : ''}</div>
+          <div class="habit-card-desc">${h.desc}</div>
+        </div>
+        <div class="habit-card-right">
+          ${streak > 0
+            ? `<div class="streak-badge">🔥 ${streak}</div>`
+            : `<div class="streak-badge zero">–</div>`
+          }
+          <div class="expand-icon">▼</div>
+        </div>
+      </div>
+      <div class="habit-log-panel" id="panel-${h.id}">
+        <div class="log-identity">${h.identity}<br><span style="color:var(--sage);font-size:11px;font-style:normal">2-minute version: ${h.twoMinute}</span></div>
+        ${buildLogForm(h)}
+        ${todayEntries.length > 0 ? buildTodaysEntries(todayEntries, h) : ''}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function buildLogForm(h) {
+  const actOptions = h.activities.map(a => `<option value="${a}">${a}</option>`).join('');
+  const ctxOptions = h.contexts.map(c => `<option value="${c}">${c}</option>`).join('');
+  const isWellbeing = h.id === 'wellbeing';
+
+  return `
+    <div class="form-row">
+      <label class="form-label">What did you do?</label>
+      <input class="form-input" id="entry-${h.id}" placeholder="Describe this session…" />
+    </div>
+    <div class="form-row-2">
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Activity</label>
+        <select class="form-select" id="activity-${h.id}" onchange="checkExclusion('${h.id}')">
+          ${actOptions}
+        </select>
+      </div>
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Context</label>
+        <select class="form-select" id="context-${h.id}">
+          ${ctxOptions}
+        </select>
+      </div>
+    </div>
+    <div id="exclude-note-${h.id}" class="exclude-note" style="display:none">
+      ⚠️ This activity is tracked for awareness only and won't count toward your streak or daily goal.
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <label class="form-label">Tags <span style="font-weight:400;text-transform:none;letter-spacing:0">(press Enter or comma)</span></label>
+      <div class="tag-pills" id="tag-pills-${h.id}"></div>
+      <input class="tag-input" id="tag-input-${h.id}" placeholder="#Japanese, #DuneSeries…"
+        onkeydown="handleTagInput(event,'${h.id}')" />
+    </div>
+    <div class="form-row">
+      <label class="form-label">Notes <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+      <textarea class="form-textarea" id="notes-${h.id}" placeholder="Anything worth remembering…"></textarea>
+    </div>
+    ${isWellbeing ? `
+    <div id="tarot-fields-${h.id}" style="display:none">
+      <div class="form-row">
+        <label class="form-label">Deck</label>
+        <input class="form-input" id="deck-${h.id}" placeholder="e.g. Rider-Waite-Smith" />
+      </div>
+      <div class="form-row">
+        <label class="form-label">Spread</label>
+        <input class="form-input" id="spread-${h.id}" placeholder="e.g. 8-Card Mirror Spread" />
+      </div>
+      <div class="form-row">
+        <label class="form-label">Cards drawn <span style="font-weight:400;text-transform:none;letter-spacing:0">(one per line)</span></label>
+        <textarea class="form-textarea" id="cards-${h.id}" placeholder="2 of Swords&#10;Page of Swords&#10;Ace of Swords…"></textarea>
+      </div>
+    </div>
+    ` : ''}
+    <button class="log-btn" style="background:${h.colorDim};border:1px solid ${h.color}33;color:${h.color};"
+      onclick="logEntry('${h.id}')">
+      Log this entry
+    </button>
+  `;
+}
+
+function buildTodaysEntries(entries, h) {
+  const rows = entries.map(e => `
+    <div class="entry-chip">
+      <div class="entry-chip-dot${e.excluded ? ' excluded' : ''}"></div>
+      <div>
+        <span>${e.entry}</span>
+        <span style="color:var(--text-dim);font-size:11px"> · ${e.activity}${e.excluded ? ' (not counted)' : ''}</span>
+      </div>
+    </div>
+  `).join('');
+  return `
+    <div class="todays-entries">
+      <div class="todays-entries-label">Logged today</div>
+      ${rows}
+    </div>
+  `;
+}
+
+function renderStreaksView() {
+  const grid = document.getElementById('streaks-grid');
+  grid.innerHTML = '';
+
+  HABITS.forEach(h => {
+    const streak = state.streaks[h.id] || 0;
+    const maxDisplay = 30;
+    const pct = Math.min(streak / maxDisplay * 100, 100);
+
+    // find the right message
+    const thresholds = Object.keys(STREAK_MESSAGES).map(Number).sort((a,b) => b-a);
+    let msg = STREAK_MESSAGES[0];
+    for (const t of thresholds) {
+      if (streak >= t) { msg = STREAK_MESSAGES[t]; break; }
+    }
+
+    const card = document.createElement('div');
+    card.className = 'streak-card';
+    card.innerHTML = `
+      <div class="streak-card-top">
+        <div class="streak-card-icon">${h.icon}</div>
+        <div class="streak-number">${streak} <span>day${streak !== 1 ? 's' : ''}</span></div>
+      </div>
+      <div class="streak-name">${h.name}</div>
+      <div class="streak-bar-track">
+        <div class="streak-bar-fill" style="width:${pct}%;background:${h.color}"></div>
+      </div>
+      <div class="streak-message">${msg}</div>
+    `;
+    grid.appendChild(card);
+  });
+
+  const goalDays = state.goalDaysHit || 0;
+  document.getElementById('goal-streak-num').innerHTML = `${goalDays} <span>day${goalDays !== 1 ? 's' : ''}</span>`;
+  const thresholds = Object.keys(STREAK_MESSAGES).map(Number).sort((a,b) => b-a);
+  let goalMsg = STREAK_MESSAGES[0];
+  for (const t of thresholds) {
+    if (goalDays >= t) { goalMsg = STREAK_MESSAGES[t]; break; }
+  }
+  document.getElementById('goal-streak-msg').textContent = goalMsg;
+}
+
+function renderLogView() {
+  const container = document.getElementById('full-log-container');
+  if (!state.log.length) {
+    container.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text-dim);font-size:14px">No entries yet.<br>Log your first habit today.</div>`;
+    return;
+  }
+
+  // group by date descending
+  const grouped = {};
+  [...state.log].reverse().forEach(e => {
+    if (!grouped[e.date]) grouped[e.date] = [];
+    grouped[e.date].push(e);
+  });
+
+  const habit = id => HABITS.find(h => h.id === id);
+
+  let html = `<div class="log-history open">`;
+  Object.entries(grouped).forEach(([date, entries]) => {
+    const typesHit = new Set(entries.filter(e => !e.excluded).map(e => e.habitId));
+    const goalHit = typesHit.size >= DAILY_GOAL;
+    html += `
+      <div class="log-day-group">
+        <div class="log-day-header">${formatDate(date)} ${goalHit ? '· <span style="color:var(--sage)">Goal ✓</span>' : ''}</div>
+    `;
+    entries.forEach(e => {
+      const h = habit(e.habitId);
+      const tagsHtml = (e.tags||[]).length
+        ? `<div class="log-entry-tags">${e.tags.map(t => `<span class="log-tag">${t}</span>`).join('')}</div>`
+        : '';
+      html += `
+        <div class="log-entry-row">
+          <div class="log-entry-type-dot" style="background:${h ? h.color : '#888'}${e.excluded ? '55' : ''}"></div>
+          <div class="log-entry-body">
+            <div class="log-entry-name">${e.entry}${e.excluded ? ' <span style="color:var(--amber);font-size:11px">(not counted)</span>' : ''}</div>
+            <div class="log-entry-meta">${h ? h.name : ''} · ${e.activity} · ${e.context}</div>
+            ${tagsHtml}
+            ${e.notes ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;font-style:italic">${e.notes}</div>` : ''}
+          </div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  });
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+function renderDetailLogView() {
+  const container = document.getElementById('detail-log-container');
+  if (!state.detailLog.length) {
+    container.innerHTML = `<div style="color:var(--text-dim);font-size:13px;padding:8px 0">Tarot readings and other detailed entries will appear here.</div>`;
+    return;
+  }
+  container.innerHTML = [...state.detailLog].reverse().map(d => `
+    <div class="detail-card">
+      <div class="detail-card-title">${d.title}</div>
+      <div class="detail-card-meta">
+        ${formatDate(d.date)} · ${d.deck || ''}${d.spread ? ' · ' + d.spread : ''}${d.interpretation ? ' · ' + d.interpretation : ''}
+      </div>
+      ${d.cards && d.cards.length ? `
+        <div class="tarot-cards-list">
+          ${d.cards.filter(Boolean).map(c => `<span class="tarot-card-chip">${c}</span>`).join('')}
+        </div>
+      ` : ''}
+      ${d.notes ? `<div style="font-size:12px;color:var(--text-dim);margin-top:10px;line-height:1.5;font-style:italic">${d.notes}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+// ─── INTERACTIONS ─────────────────────────────────────────────────────────────
+
+let openCard = null;
+function toggleCard(habitId) {
+  const card = document.querySelector(`#habits-grid .habit-card:nth-child(${HABITS.findIndex(h => h.id === habitId)+1})`);
+  const panel = document.getElementById(`panel-${habitId}`);
+  if (!card || !panel) return;
+
+  if (card.classList.contains('open')) {
+    card.classList.remove('open');
+    openCard = null;
+  } else {
+    // close others
+    document.querySelectorAll('.habit-card.open').forEach(c => c.classList.remove('open'));
+    card.classList.add('open');
+    openCard = habitId;
+    setTimeout(() => card.scrollIntoView({ behavior:'smooth', block:'nearest' }), 100);
+  }
+}
+
+function checkExclusion(habitId) {
+  const h = HABITS.find(h => h.id === habitId);
+  const actEl = document.getElementById(`activity-${habitId}`);
+  const noteEl = document.getElementById(`exclude-note-${habitId}`);
+  if (!h || !actEl || !noteEl) return;
+  const excluded = h.excludedActivities.includes(actEl.value);
+  noteEl.style.display = excluded ? 'block' : 'none';
+
+  // show tarot fields if tarot selected in wellbeing
+  const tarotFields = document.getElementById(`tarot-fields-${habitId}`);
+  if (tarotFields) {
+    tarotFields.style.display = actEl.value === 'Tarot Reading' ? 'block' : 'none';
+  }
+}
+
+// tag management
+const tagMap = {};
+function handleTagInput(e, habitId) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const input = document.getElementById(`tag-input-${habitId}`);
+    let val = input.value.replace(/,/g,'').trim();
+    if (!val) return;
+    if (!val.startsWith('#')) val = '#' + val;
+    if (!tagMap[habitId]) tagMap[habitId] = [];
+    if (!tagMap[habitId].includes(val)) {
+      tagMap[habitId].push(val);
+      renderTagPills(habitId);
+    }
+    input.value = '';
+  }
+}
+
+function renderTagPills(habitId) {
+  const container = document.getElementById(`tag-pills-${habitId}`);
+  if (!container) return;
+  container.innerHTML = (tagMap[habitId] || []).map((t,i) => `
+    <span class="tag-pill">${t}<button onclick="removeTag('${habitId}',${i})">×</button></span>
+  `).join('');
+}
+
+function removeTag(habitId, idx) {
+  tagMap[habitId].splice(idx, 1);
+  renderTagPills(habitId);
+}
+
+function logEntry(habitId) {
+  const h = HABITS.find(h => h.id === habitId);
+  const entryEl = document.getElementById(`entry-${habitId}`);
+  const actEl   = document.getElementById(`activity-${habitId}`);
+  const ctxEl   = document.getElementById(`context-${habitId}`);
+  const notesEl = document.getElementById(`notes-${habitId}`);
+
+  const entry    = entryEl ? entryEl.value.trim() : '';
+  const activity = actEl ? actEl.value : '';
+  const context  = ctxEl ? ctxEl.value : '';
+  const notes    = notesEl ? notesEl.value.trim() : '';
+  const tags     = tagMap[habitId] || [];
+  const excluded = h.excludedActivities.includes(activity);
+
+  if (!entry) { showToast('Add a quick description first.'); return; }
+
+  const id = Date.now().toString();
+  const today = todayStr();
+
+  state.log.push({ id, date: today, habitId, entry, activity, context, tags, notes, excluded });
+
+  // handle tarot detail log
+  if (activity === 'Tarot Reading') {
+    const deckEl  = document.getElementById(`deck-${habitId}`);
+    const spreadEl= document.getElementById(`spread-${habitId}`);
+    const cardsEl = document.getElementById(`cards-${habitId}`);
+    const deck    = deckEl ? deckEl.value.trim() : '';
+    const spread  = spreadEl ? spreadEl.value.trim() : '';
+    const cards   = cardsEl ? cardsEl.value.split('\n').map(s=>s.trim()).filter(Boolean) : [];
+    const tarotTags = [...tags].filter(t => t !== '#NoStreak');
+    // find interpretation context
+    const interpretation = ctxEl ? ctxEl.value : '';
+
+    state.detailLog.push({
+      id: id + '-detail',
+      date: today,
+      title: entry,
+      deck, spread,
+      interpretation,
+      cards,
+      tags: tarotTags,
+      notes
+    });
+  }
+
+  // reset form
+  if (entryEl) entryEl.value = '';
+  if (notesEl) notesEl.value = '';
+  tagMap[habitId] = [];
+
+  render();
+
+  const msg = excluded
+    ? `Logged (awareness only, not counted toward streak)`
+    : `Logged ✓ — vote cast for ${h.name}.`;
+  showToast(msg);
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────────────────────────
+
+function switchView(name, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  btn.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+// ─── DATA EXPORT / IMPORT ─────────────────────────────────────────────────────
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `kai-habits-${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exported ✓');
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (!imported.log) throw new Error('Invalid format');
+      state = imported;
+      render();
+      showToast('Imported ✓');
+    } catch {
+      showToast('Import failed — check the file.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function confirmReset() {
+  if (confirm('Clear ALL data and reset? This cannot be undone.')) {
+    localStorage.removeItem('kai-habits-v2');
+    state = { log: [], detailLog: [], streaks: {}, goalDaysHit: 0 };
+    render();
+    showToast('Reset complete.');
+  }
+}
+
+// ─── SEED EXISTING DATA FROM markdown ────────────────────────────────────────
+
+function seedInitialData() {
+  if (state.log.length) return; // already has data
+  const seed = [
+    { id:'seed1', date:'2026-08-04', habitId:'knowledge', entry:'Read a chapter of God Emperor of Dune', activity:'Reading', context:'Physical Book', tags:['#DuneSeries','#LibraryBook'], notes:'', excluded:false },
+    { id:'seed2', date:'2026-08-04', habitId:'admin',     entry:'Cleaned dishes', activity:'House Chores', context:'Kitchen', tags:['#Dishes'], notes:'', excluded:false },
+    { id:'seed3', date:'2026-08-04', habitId:'knowledge', entry:'Practiced Japanese on Duolingo', activity:'Hiragana Practice', context:'Duolingo', tags:['#Japanese'], notes:'', excluded:false },
+    { id:'seed4', date:'2026-08-04', habitId:'wellbeing', entry:'Tarot Reading on Creative Block & Self-Confidence', activity:'Tarot Reading', context:'AI-Assisted', tags:['#CreativeBlock','#SelfConfidence','#ChatGPT','#For-Me'], notes:'Rider-Waite-Smith deck, 8-Card Mirror Spread', excluded:false },
+    { id:'seed5', date:'2026-08-05', habitId:'creativity',entry:'30+ Minutes of Music Discovery', activity:'Music Discovery & Playlist Building', context:'Spotify', tags:[], notes:'', excluded:false },
+    { id:'seed6', date:'2026-08-05', habitId:'wellbeing', entry:'Smoke Session - 1', activity:'Marijuana', context:'Solo', tags:['#WaterPipe'], notes:'1-Hit', excluded:true },
+    { id:'seed7', date:'2026-08-05', habitId:'wellbeing', entry:'Smoke Session - 2', activity:'Marijuana', context:'Solo', tags:['#WaterPipe'], notes:'1-Hit', excluded:true },
+  ];
+  state.log = seed;
+  state.detailLog = [{
+    id:'seed4-detail',
+    date:'2026-08-04',
+    title:'Tarot Reading on Creative Block & Self-Confidence',
+    deck:'Rider-Waite-Smith',
+    spread:'8-Card Mirror Spread',
+    interpretation:'AI-Assisted',
+    cards:['2 of Swords','5 of Swords','Page of Swords','Ace of Swords','3 of Cups','4 of Wands — Reversed','8 of Pentacles','9 - The Hermit — Reversed'],
+    tags:['#CreativeBlock','#SelfConfidence','#ChatGPT','#For-Me'],
+    notes:''
+  }];
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+
+loadState();
+seedInitialData();
+render();
+</script>
+</body>
+</html>
