@@ -1394,23 +1394,6 @@ const STREAK_MESSAGES = {
   30: "One month. You've changed.",
 };
 
-// ─── STATE ────────────────────────────────────────────────────────────────────
-
-let state = {
-  log: [],        // { id, date, habitId, entry, activity, context, tags, notes, excluded }
-  detailLog: [],  // { id, date, title, deck, spread, interpretation, cards, tags }
-  streaks: { knowledge:0, admin:0, creativity:0, wellbeing:0 },
-  goalDaysHit: 0
-};
-
-function loadState() {
-  loadLocalCache(); // state already loaded from cache — no-op here, kept for compatibility
-}
-
-function saveState() {
-  saveLocalCache();
-}
-
 // ─── DATE UTILS ───────────────────────────────────────────────────────────────
 
 function todayStr() {
