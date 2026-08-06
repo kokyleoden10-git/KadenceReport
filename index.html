@@ -972,7 +972,69 @@
     }
     .weather-dot { color: var(--text-dim); font-size: 10px; }
 
-    /* ── LOCK SCREEN ── */
+    .log-entry-edit-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 13px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .log-entry-row:hover .log-entry-edit-btn,
+    .log-entry-row:active .log-entry-edit-btn { opacity: 1; }
+
+    /* Edit sheet — reuses bottom-sheet styles, extra fields */
+    .edit-sheet-field { margin-bottom: 12px; }
+    .edit-sheet-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 5px;
+      display: block;
+    }
+    .edit-sheet-input, .edit-sheet-textarea {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      padding: 10px 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .edit-sheet-input:focus, .edit-sheet-textarea:focus { border-color: rgba(125,181,160,0.5); }
+    .edit-sheet-textarea { resize: vertical; min-height: 56px; line-height: 1.5; }
+    .edit-sheet-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .edit-save-btn {
+      flex: 1;
+      padding: 12px;
+      background: var(--sage-dim);
+      border: 1px solid rgba(125,181,160,0.3);
+      border-radius: var(--radius-sm);
+      color: var(--sage);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .edit-delete-btn {
+      padding: 12px 16px;
+      background: rgba(180,60,60,0.1);
+      border: 1px solid rgba(180,60,60,0.2);
+      border-radius: var(--radius-sm);
+      color: #E07070;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+    }
     #lock-screen {
       display: none;
       position: fixed;
@@ -1143,6 +1205,33 @@
     <div class="sheet-add-new-row">
       <input id="sheet-add-new-input" placeholder="Type a name and save…" />
       <button onclick="confirmSheetNewItem()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT ENTRY SHEET -->
+<div class="sheet-backdrop" id="edit-backdrop" onclick="closeEditSheet()"></div>
+<div class="bottom-sheet" id="edit-sheet">
+  <div class="sheet-header">
+    <div class="sheet-title">Edit Entry</div>
+    <button class="sheet-close" onclick="closeEditSheet()">×</button>
+  </div>
+  <div class="sheet-options" style="padding:16px 20px;overflow-y:auto">
+    <div class="edit-sheet-field">
+      <label class="edit-sheet-label">Description</label>
+      <input class="edit-sheet-input" id="edit-entry" type="text" />
+    </div>
+    <div class="edit-sheet-field">
+      <label class="edit-sheet-label">Notes</label>
+      <textarea class="edit-sheet-textarea" id="edit-notes"></textarea>
+    </div>
+    <div class="edit-sheet-field">
+      <label class="edit-sheet-label">Tags <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px">(comma separated)</span></label>
+      <input class="edit-sheet-input" id="edit-tags" type="text" placeholder="#Japanese, #DuneSeries" />
+    </div>
+    <div class="edit-sheet-actions">
+      <button class="edit-save-btn" onclick="saveEditEntry()">Save changes</button>
+      <button class="edit-delete-btn" onclick="deleteEntry()">Delete</button>
     </div>
   </div>
 </div>
@@ -2023,6 +2112,7 @@ function renderLogView() {
             ${tagsHtml}
             ${e.notes ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;font-style:italic">${e.notes}</div>` : ''}
           </div>
+          <button class="log-entry-edit-btn" onclick="openEditSheet('${e.id}')" title="Edit">✎</button>
         </div>
       `;
     });
@@ -2397,6 +2487,83 @@ function wmoCondition(code) {
   return 'Mixed';
 }
 
+// ─── EDIT ENTRY ───────────────────────────────────────────────────────────────
+
+let editingEntryId = null;
+
+function openEditSheet(entryId) {
+  const entry = state.log.find(e => e.id === entryId);
+  if (!entry) return;
+  editingEntryId = entryId;
+
+  document.getElementById('edit-entry').value  = entry.entry || '';
+  document.getElementById('edit-notes').value  = entry.notes || '';
+  document.getElementById('edit-tags').value   = (entry.tags || []).join(', ');
+
+  document.getElementById('edit-backdrop').classList.add('open');
+  document.getElementById('edit-sheet').classList.add('open');
+  setTimeout(() => document.getElementById('edit-entry').focus(), 100);
+}
+
+function closeEditSheet() {
+  document.getElementById('edit-backdrop').classList.remove('open');
+  document.getElementById('edit-sheet').classList.remove('open');
+  editingEntryId = null;
+}
+
+async function saveEditEntry() {
+  if (!editingEntryId) return;
+  const idx = state.log.findIndex(e => e.id === editingEntryId);
+  if (idx === -1) return;
+
+  const entryText = document.getElementById('edit-entry').value.trim();
+  const notes     = document.getElementById('edit-notes').value.trim();
+  const rawTags   = document.getElementById('edit-tags').value;
+
+  // Parse tags — split by comma, clean up, ensure #
+  const tags = rawTags.split(',')
+    .map(t => {
+      t = t.trim();
+      if (!t) return null;
+      if (!t.startsWith('#')) t = '#' + t;
+      return '#' + t.slice(1).replace(/\b\w/g, c => c.toUpperCase());
+    })
+    .filter(Boolean);
+
+  if (!entryText) { showToast('Description can\'t be empty.'); return; }
+
+  state.log[idx] = { ...state.log[idx], entry: entryText, notes, tags };
+  saveState();
+  await persistEntry(state.log[idx]);
+
+  closeEditSheet();
+  render();
+  showToast('Entry updated ✓');
+}
+
+async function deleteEntry() {
+  if (!editingEntryId) return;
+  if (!confirm('Delete this entry? This cannot be undone.')) return;
+
+  const idx = state.log.findIndex(e => e.id === editingEntryId);
+  if (idx === -1) return;
+
+  const entryId = editingEntryId;
+  state.log.splice(idx, 1);
+  saveState();
+
+  // Delete from Supabase
+  if (currentUser && navigator.onLine) {
+    try {
+      await sbDelete('habit_log', `id=eq.${entryId}`, currentUser.access_token);
+    } catch { showToast('Entry removed locally, sync pending.'); }
+  }
+
+  closeEditSheet();
+  render();
+  showToast('Entry deleted.');
+}
+
 // ─── SUPABASE ────────────────────────────────────────────────────────────────
 
 const SUPABASE_URL  = 'https://wjmpbvfpxfroruuwsjve.supabase.co';
@@ -2496,16 +2663,30 @@ async function safeUpsert(table, row) {
 // ── Persist helpers ──
 async function persistEntry(e) {
   await safeUpsert('habit_log', {
-    id:e.id, user_id:currentUser.id, date:e.date, habit_id:e.habitId,
-    entry:e.entry, activity:e.activity, context:e.context,
-    tags:e.tags || [], notes:e.notes, excluded:e.excluded
+    id:       e.id,
+    user_id:  currentUser.id,
+    date:     e.date,
+    habit_id: e.habitId,
+    entry:    e.entry,
+    activity: e.activity || '',
+    context:  e.context  || '',
+    tags:     JSON.parse(JSON.stringify(e.tags || [])),
+    notes:    e.notes    || '',
+    excluded: e.excluded || false
   });
 }
 async function persistDetail(d) {
   await safeUpsert('detail_log', {
-    id:d.id, user_id:currentUser.id, date:d.date, title:d.title,
-    deck:d.deck, spread:d.spread, interpretation:d.interpretation,
-    cards:d.cards || [], tags:d.tags || [], notes:d.notes
+    id:             d.id,
+    user_id:        currentUser.id,
+    date:           d.date,
+    title:          d.title   || '',
+    deck:           d.deck    || '',
+    spread:         d.spread  || '',
+    interpretation: d.interpretation || '',
+    cards:          JSON.parse(JSON.stringify(d.cards || [])),
+    tags:           JSON.parse(JSON.stringify(d.tags  || [])),
+    notes:          d.notes   || ''
   });
 }
 async function persistLibrary() {
