@@ -973,19 +973,19 @@
     .weather-dot { color: var(--text-dim); font-size: 10px; }
 
     .log-entry-edit-btn {
-      background: none;
-      border: none;
+      background: var(--bg3);
+      border: 1px solid var(--border);
       color: var(--text-dim);
-      font-size: 13px;
+      font-size: 14px;
       cursor: pointer;
-      padding: 2px 6px;
+      padding: 5px 9px;
       border-radius: var(--radius-sm);
       flex-shrink: 0;
-      opacity: 0;
-      transition: opacity 0.15s;
+      transition: background 0.15s, color 0.15s;
+      -webkit-tap-highlight-color: transparent;
     }
-    .log-entry-row:hover .log-entry-edit-btn,
-    .log-entry-row:active .log-entry-edit-btn { opacity: 1; }
+    .log-entry-edit-btn:hover,
+    .log-entry-edit-btn:active { background: var(--sage-dim); color: var(--sage); border-color: rgba(125,181,160,0.3); }
 
     /* Edit sheet — reuses bottom-sheet styles, extra fields */
     .edit-sheet-field { margin-bottom: 12px; }
@@ -1189,6 +1189,68 @@
       text-align: center;
       margin-top: 8px;
     }
+
+    /* ── LOG FILTERS ── */
+    .filter-bar {
+      padding: 0 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .filter-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-chip {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .filter-chip.active {
+      background: var(--sage-dim);
+      border-color: rgba(125,181,160,0.4);
+      color: var(--sage);
+    }
+    .filter-search {
+      width: 100%;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      padding: 8px 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .filter-search:focus { border-color: rgba(125,181,160,0.4); }
+    .filter-search::placeholder { color: var(--text-dim); }
+    .filter-clear {
+      font-size: 11px;
+      color: var(--text-dim);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 6px;
+      font-family: 'Inter', sans-serif;
+      text-decoration: underline;
+      white-space: nowrap;
+    }
+    .log-results-count {
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 0 16px 6px;
+    }
   </style>
 </head>
 <body>
@@ -1303,6 +1365,23 @@
     <div class="header-eyebrow">History</div>
     <div class="header-date" style="font-size:22px">All Entries</div>
   </div>
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <input class="filter-search" id="log-search" placeholder="Search entries, tags, notes…"
+      oninput="renderLogView()" />
+    <div class="filter-row" id="filter-habits">
+      <span style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);flex-shrink:0">Area</span>
+    </div>
+    <div class="filter-row" id="filter-tags-row" style="display:none">
+      <span style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);flex-shrink:0">Tag</span>
+    </div>
+    <div class="filter-row">
+      <button class="filter-clear" id="filter-clear-btn" onclick="clearLogFilters()" style="display:none">Clear filters</button>
+    </div>
+  </div>
+  <div class="log-results-count" id="log-results-count"></div>
+
   <div class="log-section" style="padding-top:0">
     <div id="full-log-container"></div>
   </div>
@@ -2074,16 +2153,108 @@ function renderStreaksView() {
   document.getElementById('goal-streak-msg').textContent = goalMsg;
 }
 
+// ─── LOG FILTERS ─────────────────────────────────────────────────────────────
+
+let logFilters = { habitId: null, tag: null };
+
+function initLogFilters() {
+  const habitRow = document.getElementById('filter-habits');
+  if (!habitRow) return;
+  // Build habit filter chips — only rebuild once
+  if (habitRow.querySelectorAll('.filter-chip').length) return;
+
+  HABITS.forEach(h => {
+    const chip = document.createElement('button');
+    chip.className = 'filter-chip';
+    chip.dataset.habitId = h.id;
+    chip.innerHTML = `${h.icon} ${h.name}`;
+    chip.onclick = () => toggleHabitFilter(h.id);
+    habitRow.appendChild(chip);
+  });
+}
+
+function toggleHabitFilter(habitId) {
+  logFilters.habitId = logFilters.habitId === habitId ? null : habitId;
+  logFilters.tag = null; // reset tag when habit changes
+  renderLogView();
+}
+
+function toggleTagFilter(tag) {
+  logFilters.tag = logFilters.tag === tag ? null : tag;
+  renderLogView();
+}
+
+function clearLogFilters() {
+  logFilters = { habitId: null, tag: null };
+  const search = document.getElementById('log-search');
+  if (search) search.value = '';
+  renderLogView();
+}
+
 function renderLogView() {
-  const container = document.getElementById('full-log-container');
-  if (!state.log.length) {
-    container.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text-dim);font-size:14px">No entries yet.<br>Log your first habit today.</div>`;
+  initLogFilters();
+
+  const container  = document.getElementById('full-log-container');
+  const search     = (document.getElementById('log-search')?.value || '').toLowerCase().trim();
+  const activeHabit = logFilters.habitId;
+  const activeTag   = logFilters.tag;
+  const anyFilter   = search || activeHabit || activeTag;
+
+  // Update habit chip active states
+  document.querySelectorAll('#filter-habits .filter-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.habitId === activeHabit);
+  });
+
+  // Show/hide clear button
+  const clearBtn = document.getElementById('filter-clear-btn');
+  if (clearBtn) clearBtn.style.display = anyFilter ? 'inline' : 'none';
+
+  // Filter entries
+  let entries = [...state.log];
+  if (activeHabit) entries = entries.filter(e => e.habitId === activeHabit);
+  if (activeTag)   entries = entries.filter(e => (e.tags||[]).includes(activeTag));
+  if (search) {
+    entries = entries.filter(e =>
+      e.entry.toLowerCase().includes(search) ||
+      (e.notes||'').toLowerCase().includes(search) ||
+      (e.activity||'').toLowerCase().includes(search) ||
+      (e.context||'').toLowerCase().includes(search) ||
+      (e.tags||[]).some(t => t.toLowerCase().includes(search))
+    );
+  }
+
+  // Build tag row from filtered entries
+  const allTags = [...new Set(entries.flatMap(e => e.tags||[]))].sort();
+  const tagRow  = document.getElementById('filter-tags-row');
+  if (tagRow) {
+    tagRow.style.display = allTags.length ? 'flex' : 'none';
+    const existingChips = tagRow.querySelectorAll('.filter-chip');
+    existingChips.forEach(c => c.remove());
+    allTags.forEach(tag => {
+      const chip = document.createElement('button');
+      chip.className = `filter-chip${activeTag === tag ? ' active' : ''}`;
+      chip.textContent = tag;
+      chip.onclick = () => toggleTagFilter(tag);
+      tagRow.appendChild(chip);
+    });
+  }
+
+  // Results count
+  const countEl = document.getElementById('log-results-count');
+  if (countEl) {
+    countEl.textContent = anyFilter
+      ? `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} matched`
+      : '';
+  }
+
+  if (!entries.length) {
+    container.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text-dim);font-size:14px">${anyFilter ? 'No entries match these filters.' : 'No entries yet.<br>Log your first habit today.'}</div>`;
     return;
   }
 
-  // group by date descending
+  // Group by date descending
   const grouped = {};
-  [...state.log].reverse().forEach(e => {
+  [...entries].sort((a,b) => b.date.localeCompare(a.date)).forEach(e => {
     if (!grouped[e.date]) grouped[e.date] = [];
     grouped[e.date].push(e);
   });
@@ -2091,17 +2262,19 @@ function renderLogView() {
   const habit = id => HABITS.find(h => h.id === id);
 
   let html = `<div class="log-history open">`;
-  Object.entries(grouped).forEach(([date, entries]) => {
-    const typesHit = new Set(entries.filter(e => !e.excluded).map(e => e.habitId));
-    const goalHit = typesHit.size >= DAILY_GOAL;
+  Object.entries(grouped).forEach(([date, dayEntries]) => {
+    const typesHit = new Set(dayEntries.filter(e => !e.excluded).map(e => e.habitId));
+    const goalHit  = typesHit.size >= DAILY_GOAL;
     html += `
       <div class="log-day-group">
         <div class="log-day-header">${formatDate(date)} ${goalHit ? '· <span style="color:var(--sage)">Goal ✓</span>' : ''}</div>
     `;
-    entries.forEach(e => {
+    dayEntries.forEach(e => {
       const h = habit(e.habitId);
       const tagsHtml = (e.tags||[]).length
-        ? `<div class="log-entry-tags">${e.tags.map(t => `<span class="log-tag">${t}</span>`).join('')}</div>`
+        ? `<div class="log-entry-tags">${e.tags.map(t =>
+            `<span class="log-tag" style="cursor:pointer" onclick="toggleTagFilter('${t}')">${t}</span>`
+          ).join('')}</div>`
         : '';
       html += `
         <div class="log-entry-row">
@@ -2227,7 +2400,7 @@ function logEntry(habitId) {
   const id = Date.now().toString();
   const today = todayStr();
 
-  const newEntry = { id, date: today, habitId, entry, activity, context, tags, notes, excluded };
+  const newEntry = { id, date: today, habitId, entry, activity, context, tags: [...tags], notes, excluded };
   state.log.push(newEntry);
   persistEntry(newEntry);
 
@@ -2239,7 +2412,8 @@ function logEntry(habitId) {
     const deck    = deckEl ? deckEl.value.trim() : '';
     const spread  = spreadEl ? spreadEl.value.trim() : '';
     const cards   = cardsEl ? cardsEl.value.split('\n').map(s=>s.trim()).filter(Boolean) : [];
-    const detail  = { id: id+'-detail', date:today, title:entry, deck, spread, interpretation:context, cards, tags:[...tags], notes };
+    const frozenTags = [...tags]; // capture before tagMap is cleared below
+    const detail  = { id: id+'-detail', date:today, title:entry, deck, spread, interpretation:context, cards, tags:frozenTags, notes };
     state.detailLog.push(detail);
     persistDetail(detail);
   }
