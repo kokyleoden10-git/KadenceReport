@@ -1737,7 +1737,8 @@ function buildLogForm(h) {
     <div class="form-row" style="margin-top:10px">
       <label class="form-label">Tags <span style="font-weight:400;text-transform:none;letter-spacing:0">(press Enter or comma)</span></label>
       <div class="tag-pills" id="tag-pills-${h.id}"></div>
-      <input class="tag-input" id="tag-input-${h.id}" placeholder="#Japanese, #DuneSeries…"
+      <input class="tag-input" id="tag-input-${h.id}" placeholder="Type a tag, press Enter…"
+        oninput="handleTagInput(event,'${h.id}')"
         onkeydown="handleTagInput(event,'${h.id}')" />
     </div>
     <div class="form-row">
@@ -2076,12 +2077,24 @@ function toggleCard(habitId) {
 // tag management
 const tagMap = {};
 function handleTagInput(e, habitId) {
+  const input = document.getElementById(`tag-input-${habitId}`);
+
+  // Auto-prepend # as soon as they start typing
+  if (e.type === 'input') {
+    const raw = input.value;
+    if (raw.length === 1 && raw !== '#') {
+      input.value = '#' + raw;
+    }
+    return;
+  }
+
   if (e.key === 'Enter' || e.key === ',') {
     e.preventDefault();
-    const input = document.getElementById(`tag-input-${habitId}`);
     let val = input.value.replace(/,/g,'').trim();
-    if (!val) return;
+    if (!val || val === '#') return;
     if (!val.startsWith('#')) val = '#' + val;
+    // Title-case the tag body (after #)
+    val = '#' + val.slice(1).replace(/\b\w/g, c => c.toUpperCase());
     if (!tagMap[habitId]) tagMap[habitId] = [];
     if (!tagMap[habitId].includes(val)) {
       tagMap[habitId].push(val);
@@ -2485,14 +2498,14 @@ async function persistEntry(e) {
   await safeUpsert('habit_log', {
     id:e.id, user_id:currentUser.id, date:e.date, habit_id:e.habitId,
     entry:e.entry, activity:e.activity, context:e.context,
-    tags:e.tags, notes:e.notes, excluded:e.excluded
+    tags:e.tags || [], notes:e.notes, excluded:e.excluded
   });
 }
 async function persistDetail(d) {
   await safeUpsert('detail_log', {
     id:d.id, user_id:currentUser.id, date:d.date, title:d.title,
     deck:d.deck, spread:d.spread, interpretation:d.interpretation,
-    cards:d.cards, tags:d.tags, notes:d.notes
+    cards:d.cards || [], tags:d.tags || [], notes:d.notes
   });
 }
 async function persistLibrary() {
